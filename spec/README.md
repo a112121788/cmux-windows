@@ -21,6 +21,7 @@
 5. [`05-cli-commands.md`](05-cli-commands.md) — `ecode.exe` CLI 与 IPC 命令参考。
 6. [`06-roadmap.md`](06-roadmap.md) — 详细开发规划（M0-M7）、依赖关系、风险与指标。
 7. [`07-implementation-backlog.md`](07-implementation-backlog.md) — 可执行的 GitHub Issue / PR backlog（按里程碑和依赖排序）。
+8. [`08-dotnet-csharp-handbook.md`](08-dotnet-csharp-handbook.md) — 给只有 Ruby / Python 经验的贡献者准备的 .NET 10 / C# 速通手册，把本仓库实际用到的语言特性、工具链与运行时概念串成单一入口。
 
 ---
 
@@ -30,6 +31,7 @@
 - 任何 roadmap 范围变更（新增 / 删除 / 改优先级）必须同时更新 `06-roadmap.md` 与 `07-implementation-backlog.md`。
 - 当文档与源码出现冲突时：以源码为准，并在文档里加 `// TODO(spec): align with src/...` 注明。修复冲突需在同一个 PR 内完成。
 - 每两周一个迭代结束后，刷新 `06-roadmap.md` 的勾选状态、风险登记、成功指标与 `07-implementation-backlog.md` 的进度。
+- `08-dotnet-csharp-handbook.md` 跟随代码演进：当新增 C# 14+ 特性、第三方包、`unsafe`/P/Invoke 调用、`CommunityToolkit.Mvvm` 用法或 xUnit 写法时，相应小节要保持与 `src/` 一致。
 
 ---
 
@@ -57,5 +59,6 @@
 | `05-cli-commands.md` | 与源码一致（CLI 顶层命令范围已修正） | 当前 PR |
 | `06-roadmap.md` | 详细规划完成 | 当前 PR |
 | `07-implementation-backlog.md` | 初始版本（与 M0-M7 对应） | 当前 PR |
+| `08-dotnet-csharp-handbook.md` | 初始版本（针对 Ruby/Python 背景贡献者） | 当前 PR |
 
 > 验证方法：在每个 PR 合并前，至少跑一次 `wc -l spec/*.md` 与 `git diff --stat spec/` 复核改动量。
