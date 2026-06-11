@@ -43,12 +43,34 @@ public static class CompatibilityOptions
     }
 
     private static bool SafeReadCompatFlag()
+{
+    // Read settings.json directly instead of going through SettingsService.Current.
+    // IsCompatFlagOnDuringBoot is called from inside GetSettingsPath (and friends),
+    // which itself runs while SettingsService.Load is computing SettingsPath. Going
+    // through Current would re-enter Load (_current ??= Load()) and recurse until
+    // the stack overflows, because _current is still null while Load is on the stack.
+    try
     {
-        try { return SettingsService.Current.CompatMigrateLegacyDataDir; }
-        catch { return true; }
+        var newPath = System.IO.Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+            NewAppFolder, NewConfigFileName);
+        if (!System.IO.File.Exists(newPath))
+        {
+            var legacyPath = System.IO.Path.Combine(
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+                LegacyAppFolder, LegacyConfigFileName);
+            if (!System.IO.File.Exists(legacyPath)) return true;
+            newPath = legacyPath;
+        }
+        using var doc = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(newPath));
+        if (doc.RootElement.TryGetProperty("compatMigrateLegacyDataDir", out var v)
+            && v.ValueKind == System.Text.Json.JsonValueKind.False) return false;
+        return true;
     }
+    catch { return true; }
+}
 
-    /// <summary>
+/// <summary>
     /// 当前 ECode 的数据根目录（无尾随分隔符）。如果新目录不存在但旧目录存在并启用了迁移，
     /// 会先执行迁移再返回新目录。
     /// </summary>
@@ -60,7 +82,7 @@ public static class CompatibilityOptions
             NewAppFolder);
     }
 
-    /// <summary>
+/// <summary>
     /// 旧数据根目录，仅在兼容读取场景使用；新写入不要直接调用。
     /// </summary>
     public static string GetLegacyAppDataDir()
@@ -70,7 +92,7 @@ public static class CompatibilityOptions
             LegacyAppFolder);
     }
 
-    /// <summary>
+/// <summary>
     /// 决定要读取的 session.json 实际路径（优先新路径；新文件不存在且兼容开关打开时回退到旧文件）。
     /// </summary>
     public static string GetSessionStatePath()
@@ -85,7 +107,7 @@ public static class CompatibilityOptions
         return newPath;
     }
 
-    /// <summary>
+/// <summary>
     /// 决定要读取的 settings.json 实际路径。
     /// </summary>
     public static string GetSettingsPath()
@@ -100,7 +122,7 @@ public static class CompatibilityOptions
         return newPath;
     }
 
-    /// <summary>
+/// <summary>
     /// 决定要读取的 snippets.json 实际路径。
     /// </summary>
     public static string GetSnippetsPath()
@@ -115,7 +137,7 @@ public static class CompatibilityOptions
         return newPath;
     }
 
-    /// <summary>
+/// <summary>
     /// 决定要读取的命令日志目录；新目录存在时优先，否则回退。
     /// </summary>
     public static string GetCommandLogsDir()
@@ -130,7 +152,7 @@ public static class CompatibilityOptions
         return newDir;
     }
 
-    /// <summary>
+/// <summary>
     /// 决定 Agent 会话目录。
     /// </summary>
     public static string GetAgentDir()
@@ -145,7 +167,7 @@ public static class CompatibilityOptions
         return newDir;
     }
 
-    /// <summary>
+/// <summary>
     /// 在工作目录下寻找 `ecode.json` / `cmux.json` 的回退候选路径。
     /// 返回值顺序：新路径 → 旧路径。
     /// </summary>
@@ -167,7 +189,7 @@ public static class CompatibilityOptions
         }
     }
 
-    /// <summary>
+/// <summary>
     /// 旧数据目录的命名管道（`\\.\pipe\cmux`、`\\.\pipe\cmux-{tag}`、`\\.\pipe\cmux-daemon`）是否仍要监听。
     /// </summary>
     public static bool ShouldListenLegacyMainPipe(string? tag)
@@ -180,7 +202,7 @@ public static class CompatibilityOptions
         return IsCompatFlagOnDuringBoot();
     }
 
-    /// <summary>
+/// <summary>
     /// 旧 mutex 名 `Global\CmuxDaemon` 是否应视为“已存在”来让出单实例。
     /// </summary>
     public static bool ShouldHonorLegacyMutex()
@@ -194,7 +216,7 @@ public static class CompatibilityOptions
         return IsCompatFlagOnDuringBoot();
     }
 
-    /// <summary>
+/// <summary>
     /// 首启迁移：把旧目录下的子文件/子目录复制到新目录，写一条 `migrated-data` 日志。
     /// 仅执行一次。
     /// </summary>
@@ -204,11 +226,20 @@ public static class CompatibilityOptions
         lock (_migrationLock)
         {
             if (_migrationChecked) return;
-            _migrationChecked = true;
+            // (deferred: see comment below)
 
             try
             {
                 if (!IsCompatFlagOnDuringBoot()) return;
+                // Mark migration as checked only AFTER reading the flag. Setting the flag earlier
+                // makes IsCompatFlagOnDuringBoot fall through to SafeReadCompatFlag, which calls
+                // SettingsService.Current (a _current ??= Load()). Inside Load, evaluating
+                // SettingsPath calls CompatibilityOptions.GetSettingsPath() -> GetAppDataDir() ->
+                // EnsureMigrated() again. With _migrationChecked = true already set the early
+                // return at the top of EnsureMigrated would normally break the cycle, but
+                // _current is still null while Load is running, so the nested Current access
+                // re-enters Load and recurses until the stack overflows.
+                _migrationChecked = true;
 
                 var newDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
