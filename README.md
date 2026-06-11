@@ -1,71 +1,73 @@
-# cmux for Windows
+> English version: [README.en.md](README.en.md)
 
-A dark, keyboard-first terminal multiplexer for Windows, inspired by tmux/cmux workflows but built natively with WPF + ConPTY.
+# cmux（Windows 版）
+
+一款运行在 Windows 上的深色、键盘优先的终端复用器，灵感来自 tmux/cmux 的工作流，但底层使用 WPF + ConPTY 原生构建。
 
 ---
 
-## Why / Who / What / How
+## 缘起 / 谁用 / 是什么 / 怎么用
 
-| Why (problem) | Who (for) | What (feature) | How to use |
+| 缘起（痛点） | 谁用（用户） | 是什么（能力） | 怎么用 |
 |---|---|---|---|
-| You lose context across projects and shells | Developers juggling many repos/tasks | **Workspaces + surfaces (tabs)** | `Ctrl+N` new workspace, `Ctrl+T` new surface, switch with `Ctrl+1..9` |
-| One terminal is never enough | CLI-heavy users, agent workflows | **Split panes** (right/down) | `Ctrl+D` split right, `Ctrl+Shift+D` split down, `Ctrl+Alt+Arrow` focus pane |
-| You miss important agent outputs | AI-assisted coding users (Claude/Codex/etc.) | **OSC notifications + unread tracking** | `Ctrl+I` open notifications, `Ctrl+Shift+U` jump to latest unread |
-| You need auditability of executed commands | Security-conscious / debugging workflows | **Command logs + history picker** | `Ctrl+Shift+L` logs, `Ctrl+Alt+H` command history, insert/run from UI |
-| You want full session recall after crashes/restarts | Long-running sessions | **Session persistence + transcript capture** | Auto restore on startup + open **Session Vault** (`Ctrl+Shift+V`) |
-| You want searchable output history like Termius vault | Anyone reviewing terminal sessions | **Session Vault browser** | Open vault, filter captures, preview transcript, copy/open file |
-| You need dark theme consistency and personalization | Users who care about UX/readability | **Dark UI + terminal theme customization** | Settings (`Ctrl+,`) for colors/font/cursor + workspace accents |
-| You want quick actions without mouse hunting | Keyboard-first power users | **Command palette + shortcuts** | `Ctrl+Shift+P` command palette, menu mirrors key flows |
-| You need automation from scripts/tools | Integrators/agent hooks | **Named pipe CLI API** (`cmux`) | `cmux notify`, `cmux workspace`, `cmux split`, `cmux status` |
+| 在不同项目与 shell 之间切换时会丢失上下文 | 同时维护多个仓库/任务的同学 | **工作区 + 标签页（surfaces）** | `Ctrl+N` 新建工作区，`Ctrl+T` 新建标签页，`Ctrl+1..9` 切换 |
+| 一个终端永远不够用 | 命令行重度用户、agent 工作流 | **分屏（左右/上下）** | `Ctrl+D` 向右分屏，`Ctrl+Shift+D` 向下分屏，`Ctrl+Alt+方向键` 聚焦面板 |
+| 错过 agent 的关键输出 | 使用 AI 辅助编码的同学（Claude/Codex 等） | **OSC 通知 + 未读追踪** | `Ctrl+I` 打开通知，`Ctrl+Shift+U` 跳到最新未读 |
+| 需要可审计的执行命令记录 | 注重安全/排障的工作流 | **命令日志 + 历史选择器** | `Ctrl+Shift+L` 查看日志，`Ctrl+Alt+H` 命令历史，可在界面里插入/执行 |
+| 希望崩溃/重启后能完整恢复会话 | 长时间运行的会话 | **会话持久化 + 脚本捕获** | 启动时自动恢复，并打开 **Session Vault**（`Ctrl+Shift+V`） |
+| 像 Termius vault 一样可搜索历史输出 | 需要复盘终端会话的同学 | **Session Vault 浏览器** | 打开 vault，过滤捕获记录，预览脚本，复制/打开文件 |
+| 希望深色主题统一且可定制 | 在意交互/可读性的同学 | **深色 UI + 终端主题定制** | 设置（`Ctrl+,`）调整颜色/字体/光标 + 工作区配色 |
+| 不想反复找鼠标触发操作 | 键盘优先的进阶用户 | **命令面板 + 快捷键** | `Ctrl+Shift+P` 打开命令面板，菜单镜像主快捷键 |
+| 需要脚本/工具自动化 | 集成方/agent hook | **命名管道 CLI API**（`cmux`） | `cmux notify`、`cmux workspace`、`cmux split`、`cmux status` |
 
 ---
 
-## Core capabilities
+## 核心能力
 
-- Native **ConPTY terminal emulation** (real Windows terminal backend)
-- Workspace sidebar with metadata (git branch, cwd, notifications)
-- Multi-surface tabs and split-pane layout management
-- Notification ingestion (OSC 9/99/777) for coding agents
-- Command logs/history with filtering and quick replay
-- Terminal transcript capture + Session Vault browsing
-- Persistent sessions (window + workspace/surface/pane state)
-- Dark desktop UI with keyboard-first navigation
+- 原生 **ConPTY 终端模拟**（真正的 Windows 终端后端）
+- 工作区侧边栏，带元信息（git 分支、当前目录、通知）
+- 多标签页与分屏布局管理
+- 通知接入（OSC 9/99/777），适配编码 agent
+- 命令日志/历史，支持过滤与一键回放
+- 终端脚本捕获 + Session Vault 浏览
+- 会话持久化（窗口 + 工作区/标签页/面板状态）
+- 深色桌面 UI，主打键盘优先的导航
 
 ---
 
-## Screenshots
+## 截图
 
 <details>
-  <summary>Open screenshots</summary>
+  <summary>展开截图</summary>
 
-  <p><strong>Main workspace view</strong></p>
-  <img src="assets/screenshots/1.jpg" alt="cmux main workspace" width="1000" />
+  <p><strong>主工作区视图</strong></p>
+  <img src="assets/screenshots/1.jpg" alt="cmux 主工作区" width="1000" />
 
-  <p><strong>Snippets panel</strong></p>
-  <img src="assets/screenshots/2.jpg" alt="cmux snippets panel" width="700" />
+  <p><strong>代码片段面板</strong></p>
+  <img src="assets/screenshots/2.jpg" alt="cmux 代码片段面板" width="700" />
 
-  <p><strong>Command logs window</strong></p>
-  <img src="assets/screenshots/3.jpg" alt="cmux command logs" width="1000" />
+  <p><strong>命令日志窗口</strong></p>
+  <img src="assets/screenshots/3.jpg" alt="cmux 命令日志" width="1000" />
 </details>
 
 ---
 
-## Build and run (Windows)
+## 构建与运行（Windows）
 
-### Requirements
+### 环境要求
 
 - Windows 10/11
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- Optional: Visual Studio 2022 / Build Tools
+- 可选：Visual Studio 2022 / Build Tools
 
-### Clone
+### 克隆
 
 ```powershell
 git clone <repo-url> cmux-windows
 cd cmux-windows
 ```
 
-### Dev run
+### 开发模式运行
 
 ```powershell
 dotnet build Cmux.sln -c Debug
@@ -74,142 +76,142 @@ dotnet run --project src/Cmux/Cmux.csproj -c Debug
 
 ---
 
-## Build `.exe` on Windows
+## 在 Windows 上构建 `.exe`
 
-### 1) Framework-dependent `.exe` (smallest output)
+### 1) 依赖框架的 `.exe`（体积最小）
 
 ```powershell
 dotnet publish src/Cmux/Cmux.csproj -c Release -r win-x64 --self-contained false -o publish/cmux-win-x64
 ```
 
-Output:
+产物：
 - `publish/cmux-win-x64/cmuxw.exe`
 
-Use this when target machines already have .NET runtime installed.
+适用场景：目标机器上已经装好 .NET 运行时。
 
-### 2) Self-contained `.exe` (no runtime install needed)
+### 2) 自包含 `.exe`（无需安装运行时）
 
 ```powershell
 dotnet publish src/Cmux/Cmux.csproj -c Release -r win-x64 --self-contained true -o publish/cmux-win-x64-sc
 ```
 
-Output:
+产物：
 - `publish/cmux-win-x64-sc/cmuxw.exe`
 
-### 3) Single-file self-contained `.exe` (portable artifact)
+### 3) 单文件自包含 `.exe`（便携产物）
 
 ```powershell
 dotnet publish src/Cmux/Cmux.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=false -o publish/cmux-win-x64-single
 ```
 
-Output:
+产物：
 - `publish/cmux-win-x64-single/cmuxw.exe`
 
-> Note: WebView2-backed features may require WebView2 Runtime depending on target system state.
+> 注意：依赖 WebView2 的功能可能需要目标系统已安装 WebView2 运行时，具体取决于系统状态。
 
-### Build CLI executable
+### 构建 CLI 可执行文件
 
 ```powershell
 dotnet publish src/Cmux.Cli/Cmux.Cli.csproj -c Release -r win-x64 --self-contained true -o publish/cmux-cli
 ```
 
-Add `publish/cmux-cli` to `PATH` to use `cmux` globally.
+把 `publish/cmux-cli` 加入 `PATH` 后即可全局使用 `cmux`。
 
 ---
 
-## First 5 minutes (how to use)
+## 前 5 分钟上手
 
-1. Launch `cmuxw.exe`
-2. `Ctrl+N` to create a workspace for your repo
-3. `Ctrl+T` to create additional surfaces (tabs)
-4. Split panes with `Ctrl+D` / `Ctrl+Shift+D`
-5. Open command palette with `Ctrl+Shift+P` for quick actions
-6. Open logs with `Ctrl+Shift+L`
-7. Open Session Vault with `Ctrl+Shift+V`
-8. Open settings with `Ctrl+,` and tune terminal theme/font/cursor
-
----
-
-## Keyboard shortcuts
-
-### Workspaces
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+N` | New workspace |
-| `Ctrl+1..8` | Jump to workspace 1..8 |
-| `Ctrl+9` | Jump to last workspace |
-| `Ctrl+Shift+W` | Close workspace |
-| `Ctrl+Shift+R` | Rename workspace |
-| `Ctrl+B` | Toggle sidebar |
-
-### Surfaces (tabs)
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+T` | New surface |
-| `Ctrl+W` | Close surface |
-| `Ctrl+Shift+]` | Next surface |
-| `Ctrl+Shift+[` | Previous surface |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Cycle surfaces |
-
-### Panes
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+D` | Split right |
-| `Ctrl+Shift+D` | Split down |
-| `Ctrl+Alt+Arrow` | Focus adjacent pane |
-| `Ctrl+Shift+Z` | Zoom/unzoom pane |
-
-### Productivity
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+Shift+P` | Command palette |
-| `Ctrl+Shift+F` | Search overlay |
-| `Ctrl+Shift+L` | Command logs |
-| `Ctrl+Shift+V` | Session vault |
-| `Ctrl+Alt+H` | Command history picker |
-| `Ctrl+,` | Settings |
+1. 启动 `cmuxw.exe`
+2. 用 `Ctrl+N` 为你的仓库创建一个工作区
+3. 用 `Ctrl+T` 新增更多标签页
+4. 用 `Ctrl+D` / `Ctrl+Shift+D` 分屏
+5. 用 `Ctrl+Shift+P` 打开命令面板快速操作
+6. 用 `Ctrl+Shift+L` 打开日志
+7. 用 `Ctrl+Shift+V` 打开 Session Vault
+8. 用 `Ctrl+,` 打开设置，调终端主题/字体/光标
 
 ---
 
-## CLI usage
+## 快捷键
+
+### 工作区
+
+| 快捷键 | 动作 |
+|---|---|
+| `Ctrl+N` | 新建工作区 |
+| `Ctrl+1..8` | 跳转到第 1..8 个工作区 |
+| `Ctrl+9` | 跳转到最后一个工作区 |
+| `Ctrl+Shift+W` | 关闭工作区 |
+| `Ctrl+Shift+R` | 重命名工作区 |
+| `Ctrl+B` | 显示/隐藏侧边栏 |
+
+### 标签页（surfaces）
+
+| 快捷键 | 动作 |
+|---|---|
+| `Ctrl+T` | 新建标签页 |
+| `Ctrl+W` | 关闭标签页 |
+| `Ctrl+Shift+]` | 下一个标签页 |
+| `Ctrl+Shift+[` | 上一个标签页 |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | 循环切换标签页 |
+
+### 面板
+
+| 快捷键 | 动作 |
+|---|---|
+| `Ctrl+D` | 向右分屏 |
+| `Ctrl+Shift+D` | 向下分屏 |
+| `Ctrl+Alt+方向键` | 聚焦相邻面板 |
+| `Ctrl+Shift+Z` | 最大化/还原面板 |
+
+### 效率工具
+
+| 快捷键 | 动作 |
+|---|---|
+| `Ctrl+Shift+P` | 命令面板 |
+| `Ctrl+Shift+F` | 搜索浮层 |
+| `Ctrl+Shift+L` | 命令日志 |
+| `Ctrl+Shift+V` | Session Vault |
+| `Ctrl+Alt+H` | 命令历史选择器 |
+| `Ctrl+,` | 设置 |
+
+---
+
+## CLI 用法
 
 ```powershell
-# Send a notification (e.g., from agent hooks)
-cmux notify --title "Claude Code" --body "Waiting for input"
+# 发送一条通知（例如，来自 agent hook）
+cmux notify --title "Claude Code" --body "等待输入"
 
-# Workspace management
+# 工作区管理
 cmux workspace list
 cmux workspace create --name "My Project"
 cmux workspace select --index 0
 
-# Surface/pane actions
+# 标签页/面板操作
 cmux surface create
 cmux split right
 cmux split down
 
-# Inspect status
+# 查看状态
 cmux status
 ```
 
 ---
 
-## Architecture (high level)
+## 架构概览
 
 ```text
 src/
-  Cmux/         WPF desktop app (views, controls, themes)
-  Cmux.Core/    terminal engine, models, services, persistence, IPC
-  Cmux.Cli/     command-line client for automation
+  Cmux/         WPF 桌面应用（视图、控件、主题）
+  Cmux.Core/    终端引擎、模型、服务、持久化、IPC
+  Cmux.Cli/     用于自动化的命令行客户端
 tests/
-  Cmux.Tests/   unit tests
+  Cmux.Tests/   单元测试
 ```
 
 ---
 
-## License
+## 许可协议
 
 MIT
