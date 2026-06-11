@@ -47,6 +47,7 @@ public class TerminalControl : FrameworkElement
     private bool _cursorVisible = true;
     private bool _nativeCaretCreated;
     private IntPtr _nativeCaretHwnd;
+    private HwndSource? _imeSource;
 
     // Visual bell
     private DateTime _bellFlashUntil;
@@ -158,7 +159,8 @@ public class TerminalControl : FrameworkElement
         InputMethod.SetIsInputMethodEnabled(this, true);
         TextCompositionManager.AddTextInputStartHandler(this, OnImeTextInputPositionChanged);
         TextCompositionManager.AddTextInputUpdateHandler(this, OnImeTextInputPositionChanged);
-        Unloaded += (_, _) => DestroyNativeCaret();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
 
         _selection.SelectionChanged += () => RequestRender(System.Windows.Threading.DispatcherPriority.Render);
 
@@ -686,6 +688,99 @@ public class TerminalControl : FrameworkElement
     private void OnImeTextInputPositionChanged(object sender, TextCompositionEventArgs e) =>
         UpdateImeCaretPosition();
 
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        RegisterImeHook();
+        UpdateImeCaretPosition();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        DestroyNativeCaret();
+        UnregisterImeHook();
+    }
+
+    private void RegisterImeHook()
+    {
+        if (PresentationSource.FromVisual(this) is not HwndSource source)
+            return;
+
+        if (ReferenceEquals(_imeSource, source))
+            return;
+
+        UnregisterImeHook();
+        _imeSource = source;
+        _imeSource.AddHook(OnImeWindowMessage);
+    }
+
+    private void UnregisterImeHook()
+    {
+        if (_imeSource == null)
+            return;
+
+        _imeSource.RemoveHook(OnImeWindowMessage);
+        _imeSource = null;
+    }
+
+    private IntPtr OnImeWindowMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (!IsKeyboardFocusWithin)
+            return IntPtr.Zero;
+
+        switch (msg)
+        {
+            case WmImeStartComposition:
+            case WmImeComposition:
+                UpdateImeCaretPosition();
+                break;
+            case WmImeNotify:
+                if (wParam.ToInt32() is ImnOpenCandidate or ImnChangeCandidate)
+                    UpdateImeCaretPosition();
+                break;
+            case WmImeRequest:
+                return HandleImeRequest(hwnd, wParam, lParam, ref handled);
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private IntPtr HandleImeRequest(IntPtr hwnd, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (lParam == IntPtr.Zero || !TryGetImeMetrics(hwnd, out var metrics))
+            return IntPtr.Zero;
+
+        switch (wParam.ToInt32())
+        {
+            case ImrCompositionWindow:
+                Marshal.StructureToPtr(CreateCompositionForm(metrics), lParam, false);
+                handled = true;
+                return IntPtrOne;
+
+            case ImrCandidateWindow:
+                var candidateForm = CreateCandidateForm(metrics);
+                try
+                {
+                    var requestedForm = Marshal.PtrToStructure<CandidateForm>(lParam);
+                    candidateForm.DwIndex = requestedForm.DwIndex;
+                }
+                catch
+                {
+                    candidateForm.DwIndex = 0;
+                }
+
+                Marshal.StructureToPtr(candidateForm, lParam, false);
+                handled = true;
+                return IntPtrOne;
+
+            case ImrQueryCharPosition:
+                Marshal.StructureToPtr(CreateImeCharPosition(metrics), lParam, false);
+                handled = true;
+                return IntPtrOne;
+        }
+
+        return IntPtr.Zero;
+    }
+
     private void UpdateImeCaretPosition()
     {
         try
@@ -725,6 +820,8 @@ public class TerminalControl : FrameworkElement
 
             if (_nativeCaretCreated)
                 _ = SetCaretPos(caretTopLeftPx.X, caretTopLeftPx.Y);
+
+            UpdateImeWindows(hwnd);
         }
         catch (Exception ex)
         {
@@ -742,6 +839,113 @@ public class TerminalControl : FrameworkElement
         _nativeCaretCreated = false;
         _nativeCaretHwnd = IntPtr.Zero;
     }
+
+    private void UpdateImeWindows(IntPtr hwnd)
+    {
+        if (!TryGetImeMetrics(hwnd, out var metrics))
+            return;
+
+        var himc = ImmGetContext(hwnd);
+        if (himc == IntPtr.Zero)
+            return;
+
+        try
+        {
+            var compositionForm = CreateCompositionForm(metrics);
+            _ = ImmSetCompositionWindow(himc, ref compositionForm);
+
+            var candidateForm = CreateCandidateForm(metrics);
+            _ = ImmSetCandidateWindow(himc, ref candidateForm);
+        }
+        finally
+        {
+            _ = ImmReleaseContext(hwnd, himc);
+        }
+    }
+
+    private bool TryGetImeMetrics(IntPtr hwnd, out ImeMetrics metrics)
+    {
+        metrics = default;
+
+        if (_session == null || _cellWidth <= 0 || _cellHeight <= 0)
+            return false;
+
+        if (PresentationSource.FromVisual(this) is not HwndSource source ||
+            source.Handle != hwnd ||
+            source.CompositionTarget == null)
+        {
+            return false;
+        }
+
+        var buffer = _session.Buffer;
+        int cursorCol = Math.Clamp(buffer.CursorCol, 0, Math.Max(0, buffer.Cols - 1));
+        int cursorRow = Math.Clamp(buffer.CursorRow, 0, Math.Max(0, buffer.Rows - 1));
+
+        var caretTopLeft = new Point(cursorCol * _cellWidth, cursorRow * _cellHeight);
+        var caretTopLeftClient = ToHwndClientPixel(source, caretTopLeft);
+        var deviceSize = source.CompositionTarget.TransformToDevice.Transform(new Vector(_cellWidth, _cellHeight));
+        int cellWidth = Math.Max(1, (int)Math.Ceiling(Math.Abs(deviceSize.X)));
+        int cellHeight = Math.Max(1, (int)Math.Ceiling(Math.Abs(deviceSize.Y)));
+
+        var caretBottomLeftClient = new NativePoint(caretTopLeftClient.X, caretTopLeftClient.Y + cellHeight);
+        var caretRectClient = new NativeRect(
+            caretTopLeftClient.X,
+            caretTopLeftClient.Y,
+            caretTopLeftClient.X + cellWidth,
+            caretTopLeftClient.Y + cellHeight);
+
+        var documentTopLeft = ToHwndClientPixel(source, new Point(0, 0));
+        var documentBottomRight = ToHwndClientPixel(source, new Point(ActualWidth, ActualHeight));
+        var documentRectClient = NativeRect.FromPoints(documentTopLeft, documentBottomRight);
+
+        var charPositionScreen = caretTopLeftClient;
+        var documentTopLeftScreen = documentTopLeft;
+        var documentBottomRightScreen = documentBottomRight;
+        if (!ClientToScreen(hwnd, ref charPositionScreen) ||
+            !ClientToScreen(hwnd, ref documentTopLeftScreen) ||
+            !ClientToScreen(hwnd, ref documentBottomRightScreen))
+        {
+            return false;
+        }
+
+        var documentRectScreen = NativeRect.FromPoints(documentTopLeftScreen, documentBottomRightScreen);
+        metrics = new ImeMetrics(
+            caretTopLeftClient,
+            caretBottomLeftClient,
+            caretRectClient,
+            documentRectClient,
+            charPositionScreen,
+            documentRectScreen,
+            cellHeight);
+        return true;
+    }
+
+    private static CompositionForm CreateCompositionForm(ImeMetrics metrics) =>
+        new()
+        {
+            DwStyle = CfsPoint,
+            PtCurrentPos = metrics.CaretTopLeftClient,
+            RcArea = metrics.DocumentRectClient,
+        };
+
+    private static CandidateForm CreateCandidateForm(ImeMetrics metrics) =>
+        new()
+        {
+            DwIndex = 0,
+            DwStyle = CfsExclude,
+            PtCurrentPos = metrics.CaretBottomLeftClient,
+            RcArea = metrics.CaretRectClient,
+        };
+
+    private static ImeCharPosition CreateImeCharPosition(ImeMetrics metrics) =>
+        new()
+        {
+            DwSize = Marshal.SizeOf<ImeCharPosition>(),
+            DwCharPos = 0,
+            Pt = metrics.CharPositionScreen,
+            CLineHeight = metrics.CellHeight,
+            RcDocument = metrics.DocumentRectScreen,
+        };
 
     private NativePoint ToHwndClientPixel(HwndSource source, Point localPoint)
     {
@@ -1757,12 +1961,96 @@ public class TerminalControl : FrameworkElement
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool DestroyCaret();
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ClientToScreen(IntPtr hwnd, ref NativePoint point);
+
+    [DllImport("imm32.dll")]
+    private static extern IntPtr ImmGetContext(IntPtr hwnd);
+
+    [DllImport("imm32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ImmReleaseContext(IntPtr hwnd, IntPtr himc);
+
+    [DllImport("imm32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ImmSetCompositionWindow(IntPtr himc, ref CompositionForm form);
+
+    [DllImport("imm32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ImmSetCandidateWindow(IntPtr himc, ref CandidateForm form);
+
+    private const int WmImeStartComposition = 0x010D;
+    private const int WmImeComposition = 0x010F;
+    private const int WmImeNotify = 0x0282;
+    private const int WmImeRequest = 0x0288;
+    private const int ImnChangeCandidate = 0x0003;
+    private const int ImnOpenCandidate = 0x0005;
+    private const int ImrCompositionWindow = 0x0001;
+    private const int ImrCandidateWindow = 0x0002;
+    private const int ImrQueryCharPosition = 0x0006;
+    private const int CfsPoint = 0x0002;
+    private const int CfsExclude = 0x0080;
+    private static readonly IntPtr IntPtrOne = new(1);
+
     [StructLayout(LayoutKind.Sequential)]
-    private readonly struct NativePoint(int x, int y)
+    private struct NativePoint(int x, int y)
     {
-        public readonly int X = x;
-        public readonly int Y = y;
+        public int X = x;
+        public int Y = y;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect(int left, int top, int right, int bottom)
+    {
+        public int Left = left;
+        public int Top = top;
+        public int Right = right;
+        public int Bottom = bottom;
+
+        public static NativeRect FromPoints(NativePoint first, NativePoint second) =>
+            new(
+                Math.Min(first.X, second.X),
+                Math.Min(first.Y, second.Y),
+                Math.Max(first.X, second.X),
+                Math.Max(first.Y, second.Y));
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CompositionForm
+    {
+        public int DwStyle;
+        public NativePoint PtCurrentPos;
+        public NativeRect RcArea;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CandidateForm
+    {
+        public int DwIndex;
+        public int DwStyle;
+        public NativePoint PtCurrentPos;
+        public NativeRect RcArea;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ImeCharPosition
+    {
+        public int DwSize;
+        public int DwCharPos;
+        public NativePoint Pt;
+        public int CLineHeight;
+        public NativeRect RcDocument;
+    }
+
+    private readonly record struct ImeMetrics(
+        NativePoint CaretTopLeftClient,
+        NativePoint CaretBottomLeftClient,
+        NativeRect CaretRectClient,
+        NativeRect DocumentRectClient,
+        NativePoint CharPositionScreen,
+        NativeRect DocumentRectScreen,
+        int CellHeight);
 
     public void UpdateTheme(GhosttyTheme theme)
     {
