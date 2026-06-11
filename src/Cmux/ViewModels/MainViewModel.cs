@@ -36,12 +36,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _totalUnreadCount;
 
-    [ObservableProperty]
-    private bool _agentPanelVisible = true;
-
-    [ObservableProperty]
-    private double _agentPanelWidth = 380;
-
     private readonly NotificationService _notificationService;
 
     public NotificationService NotificationService => _notificationService;
@@ -214,9 +208,6 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     public void ToggleNotificationPanel() => NotificationPanelVisible = !NotificationPanelVisible;
-
-    [RelayCommand]
-    public void ToggleAgentPanel() => AgentPanelVisible = !AgentPanelVisible;
 
     partial void OnCompactSidebarChanged(bool value)
     {

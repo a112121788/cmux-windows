@@ -2,7 +2,6 @@ using System.Windows;
 using System;
 using System.Linq;
 using System.ComponentModel;
-using System.Collections.ObjectModel;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -21,12 +20,6 @@ public partial class MainWindow : Window
     private MainViewModel ViewModel => (MainViewModel)DataContext;
     private readonly DispatcherTimer _uiRefreshTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
     private ICollectionView? _workspaceView;
-    private readonly Dictionary<string, AgentChatMessageView> _streamingAssistantByThread = new(StringComparer.Ordinal);
-    private List<AgentThreadView> _agentThreadViews = [];
-    private List<AgentChatMessageView> _allThreadMessages = [];
-    private readonly ObservableCollection<AgentChatMessageView> _visibleThreadMessages = [];
-    private string? _selectedAgentThreadId;
-    private string _lastAgentContextKey = "";
 
     public MainWindow()
     {
@@ -62,11 +55,6 @@ public partial class MainWindow : Window
         OnSettingsChanged();
 
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
-        App.AgentRuntime.RuntimeUpdated += OnAgentRuntimeUpdated;
-        App.AgentConversationStore.StoreChanged += OnAgentConversationStoreChanged;
-        AgentMessagesList.ItemsSource = _visibleThreadMessages;
-        UpdateAgentPanelLayout();
-        RefreshAgentThreads();
     }
 
     private void OnSettingsChanged()
@@ -90,38 +78,7 @@ public partial class MainWindow : Window
             }
         }
 
-        ApplyAgentChatFont(settings);
         RefreshSurfaceUiState();
-    }
-
-    private void ApplyAgentChatFont(Cmux.Core.Config.CmuxSettings settings)
-    {
-        var agent = settings.Agent ?? new Cmux.Core.Config.AgentSettings();
-        var fontFamilyName = string.IsNullOrWhiteSpace(agent.ChatFontFamily)
-            ? settings.FontFamily
-            : agent.ChatFontFamily.Trim();
-        var fontSize = Math.Clamp(agent.ChatFontSize, 9, 28);
-
-        System.Windows.Media.FontFamily fontFamily;
-        try
-        {
-            fontFamily = new System.Windows.Media.FontFamily(fontFamilyName);
-        }
-        catch
-        {
-            fontFamily = new System.Windows.Media.FontFamily("Cascadia Code");
-        }
-
-        AgentThreadsList.FontFamily = fontFamily;
-        AgentThreadsList.FontSize = fontSize;
-        AgentMessagesList.FontFamily = fontFamily;
-        AgentMessagesList.FontSize = fontSize;
-        AgentPromptBox.FontFamily = fontFamily;
-        AgentPromptBox.FontSize = fontSize;
-        AgentThreadSearchBox.FontFamily = fontFamily;
-        AgentThreadSearchBox.FontSize = fontSize;
-        AgentMessageSearchBox.FontFamily = fontFamily;
-        AgentMessageSearchBox.FontSize = fontSize;
     }
 
     private void SetupWorkspaceFilter()
@@ -220,106 +177,17 @@ public partial class MainWindow : Window
     {
         _uiRefreshTimer.Stop();
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-        App.AgentRuntime.RuntimeUpdated -= OnAgentRuntimeUpdated;
-        App.AgentConversationStore.StoreChanged -= OnAgentConversationStoreChanged;
         ViewModel.SaveSession(Left, Top, Width, Height, WindowState == WindowState.Maximized);
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.AgentPanelVisible) ||
-            e.PropertyName == nameof(MainViewModel.AgentPanelWidth))
-        {
-            UpdateAgentPanelLayout();
-            return;
-        }
-
         if (e.PropertyName == nameof(MainViewModel.SidebarVisible) ||
             e.PropertyName == nameof(MainViewModel.SidebarWidth))
         {
             UpdateSidebarLayout();
             return;
         }
-
-        if (e.PropertyName == nameof(MainViewModel.SelectedWorkspace))
-            RefreshAgentThreads();
-    }
-
-    private void OnAgentConversationStoreChanged()
-    {
-        Dispatcher.BeginInvoke(() =>
-        {
-            RefreshAgentThreads();
-        });
-    }
-
-    private void OnAgentRuntimeUpdated(AgentRuntimeUpdate update)
-    {
-        Dispatcher.BeginInvoke(() =>
-        {
-            if (!IsUpdateForCurrentPane(update))
-                return;
-
-            if (!string.IsNullOrWhiteSpace(update.ThreadId) &&
-                !string.Equals(_selectedAgentThreadId, update.ThreadId, StringComparison.Ordinal))
-            {
-                _selectedAgentThreadId = update.ThreadId;
-                SelectAgentThreadInList(update.ThreadId);
-            }
-
-            switch (update.Type)
-            {
-                case AgentRuntimeUpdateType.ThreadChanged:
-                    RefreshAgentThreads();
-                    break;
-
-                case AgentRuntimeUpdateType.UserMessage:
-                    AppendAgentMessage("用户", update.Message, update.CreatedAtUtc, "-", update.ThreadId);
-                    AgentStatusText.Text = "用户消息已发送";
-                    break;
-
-                case AgentRuntimeUpdateType.AssistantDelta:
-                    AppendAssistantDelta(update.ThreadId, update.Message);
-                    AgentStatusText.Text = "正在接收响应...";
-                    break;
-
-                case AgentRuntimeUpdateType.AssistantCompleted:
-                    FinalizeAssistantMessage(update.ThreadId, update.Message, update.CreatedAtUtc,
-                        $"用量 输入:{update.InputTokens} 输出:{update.OutputTokens} 合计:{update.TotalTokens} · {update.Provider}/{update.Model}");
-                    AgentUsageText.Text = $"用量：输入 {update.InputTokens} · 输出 {update.OutputTokens} · 共 {update.TotalTokens}";
-                    AgentContextText.Text = update.ContextBudgetTokens > 0
-                        ? $"Context: {update.EstimatedContextTokens}/{update.ContextBudgetTokens} 令牌{(update.ContextNeedsCompaction ? " (near limit)" : "")}"
-                        : "上下文：-";
-                    AgentStatusText.Text = "响应完成";
-                    RefreshAgentThreads();
-                    break;
-
-                case AgentRuntimeUpdateType.ContextMetrics:
-                    AgentContextText.Text = update.ContextBudgetTokens > 0
-                        ? $"Context: {update.EstimatedContextTokens}/{update.ContextBudgetTokens} 令牌{(update.ContextNeedsCompaction ? " (near limit)" : "")}{(update.CompactionApplied ? " · compacted" : "")}"
-                        : "上下文：-";
-                    break;
-
-                case AgentRuntimeUpdateType.Error:
-                    AppendAgentMessage("错误", update.Message, update.CreatedAtUtc, "错误", update.ThreadId);
-                    AgentStatusText.Text = $"错误：{update.Message}";
-                    break;
-
-                case AgentRuntimeUpdateType.Status:
-                    AgentStatusText.Text = string.IsNullOrWhiteSpace(update.Message) ? "Idle" : update.Message;
-                    break;
-            }
-        });
-    }
-
-    private bool IsUpdateForCurrentPane(AgentRuntimeUpdate update)
-    {
-        var surface = ViewModel.SelectedWorkspace?.SelectedSurface;
-        if (surface == null)
-            return false;
-
-        return string.Equals(update.WorkspaceId, ViewModel.SelectedWorkspace?.Workspace.Id ?? "", StringComparison.Ordinal)
-            && string.Equals(update.SurfaceId, surface.Surface.Id, StringComparison.Ordinal);
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
@@ -414,10 +282,6 @@ public partial class MainWindow : Window
                     return;
                 case Key.H: // History: insert last command (Ctrl+Shift+H)
                     InsertLastCommandFromHistory();
-                    e.Handled = true;
-                    return;
-                case Key.A: // Toggle agent chat
-                    ToggleAgentChat();
                     e.Handled = true;
                     return;
             }
@@ -628,7 +492,6 @@ public partial class MainWindow : Window
 
     private void MenuOpenLogs_Click(object sender, RoutedEventArgs e) => OpenLogsWindow();
     private void MenuOpenSessionVault_Click(object sender, RoutedEventArgs e) => OpenSessionVault();
-    private void MenuToggleAgentChat_Click(object sender, RoutedEventArgs e) => ToggleAgentChat();
     private void MenuOpenSettings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void MenuOpenKeyboardShortcuts_Click(object sender, RoutedEventArgs e)
     {
@@ -668,7 +531,6 @@ public partial class MainWindow : Window
         menu.PlacementTarget = button;
         menu.IsOpen = true;
     }
-    private void ToggleAgentChat_Click(object sender, RoutedEventArgs e) => ToggleAgentChat();
     private void ToolbarLayout2Col_Click(object sender, RoutedEventArgs e) => ApplyLayout(2, 1);
     private void ToolbarLayoutGrid_Click(object sender, RoutedEventArgs e) => ApplyLayout(2, 2);
     private void ToolbarLayoutMainStack_Click(object sender, RoutedEventArgs e) => ApplyMainStackLayout();
@@ -725,21 +587,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ToggleAgentChat()
-    {
-        ViewModel.ToggleAgentPanel();
-        UpdateAgentPanelLayout();
-        if (ViewModel.AgentPanelVisible)
-        {
-            RefreshAgentThreads();
-            AgentPromptBox.Focus();
-        }
-        else
-        {
-            FocusTerminal();
-        }
-    }
-
     private void UpdateSidebarLayout()
     {
         if (ViewModel.SidebarVisible)
@@ -759,315 +606,6 @@ public partial class MainWindow : Window
             SidebarBorder.Visibility = Visibility.Collapsed;
             SidebarSplitter.Visibility = Visibility.Collapsed;
         }
-    }
-
-    private void UpdateAgentPanelLayout()
-    {
-        if (ViewModel.AgentPanelVisible)
-        {
-            var width = Math.Clamp(ViewModel.AgentPanelWidth, 300, 620);
-            AgentChatColumn.Width = new GridLength(width);
-            AgentChatPanel.Visibility = Visibility.Visible;
-            ToolbarAgentChatButton.Foreground = (System.Windows.Media.Brush)FindResource("AccentBrush");
-        }
-        else
-        {
-            AgentChatColumn.Width = new GridLength(0);
-            AgentChatPanel.Visibility = Visibility.Collapsed;
-            ToolbarAgentChatButton.Foreground = (System.Windows.Media.Brush)FindResource("ForegroundDimBrush");
-        }
-    }
-
-    private (SurfaceViewModel Surface, string PaneId)? GetCurrentPaneContext()
-    {
-        var surface = ViewModel.SelectedWorkspace?.SelectedSurface;
-        if (surface == null)
-            return null;
-
-        var paneId = surface.FocusedPaneId;
-        if (string.IsNullOrWhiteSpace(paneId))
-        {
-            paneId = surface.RootNode.GetLeaves()
-                .Select(l => l.PaneId)
-                .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
-        }
-
-        if (string.IsNullOrWhiteSpace(paneId))
-            return null;
-
-        return (surface, paneId);
-    }
-
-    private void RefreshAgentThreadsIfContextChanged()
-    {
-        var contextKey = ViewModel.SelectedWorkspace?.Workspace.Id ?? "";
-
-        if (string.Equals(contextKey, _lastAgentContextKey, StringComparison.Ordinal))
-            return;
-
-        _lastAgentContextKey = contextKey;
-        RefreshAgentThreads();
-    }
-
-    private void RefreshAgentThreads()
-    {
-        var context = GetCurrentPaneContext();
-        var workspaceId = ViewModel.SelectedWorkspace?.Workspace.Id ?? "";
-        var query = AgentThreadSearchBox.Text?.Trim() ?? "";
-        IReadOnlyList<Cmux.Core.Models.AgentConversationThread> threads;
-
-        // Keep history stable across pane/surface changes: list is workspace-wide.
-        threads = string.IsNullOrWhiteSpace(query)
-            ? App.AgentConversationStore.GetThreads(workspaceId, surfaceId: "", paneId: "")
-            : App.AgentConversationStore.SearchThreads(workspaceId, surfaceId: "", paneId: "", query: query);
-
-        if (threads.Count == 0 && !string.IsNullOrWhiteSpace(workspaceId))
-        {
-            // Last-resort fallback: show global agent history (across workspace ids).
-            threads = string.IsNullOrWhiteSpace(query)
-                ? App.AgentConversationStore.GetThreads(workspaceId: "", surfaceId: "", paneId: "")
-                : App.AgentConversationStore.SearchThreads(workspaceId: "", surfaceId: "", paneId: "", query: query);
-        }
-
-        _agentThreadViews = threads
-            .Select(t => new AgentThreadView
-            {
-                Id = t.Id,
-                Title = t.Title,
-                Meta = $"{t.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {t.MessageCount} 条消息 ·  {t.TotalTokens}",
-            })
-            .ToList();
-
-        AgentThreadsList.ItemsSource = _agentThreadViews;
-
-        var preferredThreadId = _selectedAgentThreadId;
-        if (string.IsNullOrWhiteSpace(preferredThreadId) && context != null)
-            preferredThreadId = App.AgentRuntime.GetActiveThreadId(workspaceId, context.Value.Surface.Surface.Id, context.Value.PaneId);
-        if (string.IsNullOrWhiteSpace(preferredThreadId))
-            preferredThreadId = _agentThreadViews.FirstOrDefault()?.Id;
-
-        if (!string.IsNullOrWhiteSpace(preferredThreadId))
-        {
-            var match = _agentThreadViews.FirstOrDefault(t => string.Equals(t.Id, preferredThreadId, StringComparison.Ordinal));
-            if (match != null)
-            {
-                bool switchedThread = !string.Equals(_selectedAgentThreadId, match.Id, StringComparison.Ordinal);
-                _selectedAgentThreadId = match.Id;
-                var currentSelectedId = (AgentThreadsList.SelectedItem as AgentThreadView)?.Id;
-                if (!string.Equals(currentSelectedId, match.Id, StringComparison.Ordinal))
-                    AgentThreadsList.SelectedItem = match;
-
-                bool needsInitialLoad = _allThreadMessages.Count == 0
-                    || !_allThreadMessages.All(m => string.Equals(m.ThreadId, match.Id, StringComparison.Ordinal));
-
-                if (switchedThread || needsInitialLoad)
-                    LoadAgentMessages(match.Id);
-            }
-            else
-            {
-                // Keep currently loaded messages if user search/filter hides thread list rows.
-                if (_allThreadMessages.Count == 0)
-                    LoadAgentMessages("");
-            }
-        }
-        else
-        {
-            if (_allThreadMessages.Count == 0)
-                LoadAgentMessages("");
-        }
-    }
-
-    private void SelectAgentThreadInList(string threadId)
-    {
-        if (string.IsNullOrWhiteSpace(threadId))
-            return;
-
-        var match = _agentThreadViews.FirstOrDefault(t => string.Equals(t.Id, threadId, StringComparison.Ordinal));
-        if (match == null)
-            return;
-
-        var switchedThread = !string.Equals(_selectedAgentThreadId, match.Id, StringComparison.Ordinal);
-        _selectedAgentThreadId = match.Id;
-
-        var currentSelectedId = (AgentThreadsList.SelectedItem as AgentThreadView)?.Id;
-        if (!string.Equals(currentSelectedId, match.Id, StringComparison.Ordinal))
-            AgentThreadsList.SelectedItem = match;
-
-        if (switchedThread || _allThreadMessages.Count == 0 || !_allThreadMessages.All(m => string.Equals(m.ThreadId, match.Id, StringComparison.Ordinal)))
-            LoadAgentMessages(match.Id);
-    }
-
-    private void LoadAgentMessages(string threadId)
-    {
-        if (string.IsNullOrWhiteSpace(threadId))
-        {
-            _allThreadMessages = [];
-            _visibleThreadMessages.Clear();
-            return;
-        }
-
-        _streamingAssistantByThread.Remove(threadId);
-
-        var messages = App.AgentConversationStore.GetMessages(threadId, 2000)
-            .Select(m =>
-            {
-                var role = string.IsNullOrWhiteSpace(m.Role) ? "用户" : m.Role.Trim().ToLowerInvariant();
-                var roleLabel = role switch
-                {
-                    "助手" => "助手",
-                    "系统" => "系统",
-                    _ => role == "错误" ? "错误" : "用户",
-                };
-
-                var meta = m.TotalTokens > 0
-                    ? $"{m.CreatedAtUtc.ToLocalTime():HH:mm:ss} · {m.TotalTokens} 令牌"
-                    : $"{m.CreatedAtUtc.ToLocalTime():HH:mm:ss}";
-
-                if (m.InputTokens > 0 || m.OutputTokens > 0)
-                    meta = $"{meta} · 输入 {m.InputTokens} / 输出 {m.OutputTokens}";
-
-                if (!string.IsNullOrWhiteSpace(m.Provider) || !string.IsNullOrWhiteSpace(m.Model))
-                    meta = $"{meta} · {m.Provider}/{m.Model}".TrimEnd('/');
-
-                return new AgentChatMessageView
-                {
-                    ThreadId = threadId,
-                    Role = roleLabel,
-                    Header = $"{roleLabel} · {m.CreatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}",
-                    Content = m.Content,
-                    Meta = meta,
-                    CreatedAtUtc = m.CreatedAtUtc,
-                };
-            })
-            .ToList();
-
-        _allThreadMessages = messages;
-        ApplyAgentMessageFilter();
-        ScrollAgentMessagesToBottom();
-    }
-
-    private void ApplyAgentMessageFilter()
-    {
-        var query = AgentMessageSearchBox.Text?.Trim() ?? "";
-        var filtered = string.IsNullOrWhiteSpace(query)
-            ? _allThreadMessages
-            : _allThreadMessages.Where(m => MatchesMessageFilter(m, query)).ToList();
-
-        _visibleThreadMessages.Clear();
-        foreach (var msg in filtered)
-            _visibleThreadMessages.Add(msg);
-    }
-
-    private void AppendAgentMessage(string role, string content, DateTime createdAtUtc, string meta, string threadId)
-    {
-        if (string.IsNullOrWhiteSpace(threadId) || !string.Equals(_selectedAgentThreadId, threadId, StringComparison.Ordinal))
-            return;
-
-        var last = _allThreadMessages.LastOrDefault();
-        if (last != null &&
-            string.Equals(last.ThreadId, threadId, StringComparison.Ordinal) &&
-            string.Equals(last.Role, role, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(last.Content?.Trim(), (content ?? "").Trim(), StringComparison.Ordinal) &&
-            Math.Abs((last.CreatedAtUtc - createdAtUtc).TotalSeconds) < 3)
-        {
-            return;
-        }
-
-        var view = new AgentChatMessageView
-        {
-            ThreadId = threadId,
-            Role = role,
-            Header = $"{role} · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}",
-            Content = content ?? "",
-            Meta = string.IsNullOrWhiteSpace(meta) ? createdAtUtc.ToLocalTime().ToString("HH:mm:ss") : meta,
-            CreatedAtUtc = createdAtUtc,
-        };
-
-        _allThreadMessages.Add(view);
-        var query = AgentMessageSearchBox.Text?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(query) || MatchesMessageFilter(view, query))
-            _visibleThreadMessages.Add(view);
-        ScrollAgentMessagesToBottom();
-    }
-
-    private void AppendAssistantDelta(string threadId, string delta)
-    {
-        if (string.IsNullOrWhiteSpace(threadId) || !string.Equals(_selectedAgentThreadId, threadId, StringComparison.Ordinal))
-            return;
-
-        if (!_streamingAssistantByThread.TryGetValue(threadId, out var message))
-        {
-            message = new AgentChatMessageView
-            {
-                ThreadId = threadId,
-                Role = "助手",
-                Header = $"助手 · {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-                Content = "",
-                Meta = "流式响应...",
-                CreatedAtUtc = DateTime.UtcNow,
-            };
-            _streamingAssistantByThread[threadId] = message;
-            _allThreadMessages.Add(message);
-
-            var query = AgentMessageSearchBox.Text?.Trim() ?? "";
-            if (string.IsNullOrWhiteSpace(query) || MatchesMessageFilter(message, query))
-                _visibleThreadMessages.Add(message);
-        }
-
-        message.Content += delta ?? "";
-        var activeQuery = AgentMessageSearchBox.Text?.Trim() ?? "";
-        if (!string.IsNullOrWhiteSpace(activeQuery))
-        {
-            var visible = _visibleThreadMessages.Contains(message);
-            var matches = MatchesMessageFilter(message, activeQuery);
-            if (matches && !visible)
-                _visibleThreadMessages.Add(message);
-            else if (!matches && visible)
-                _visibleThreadMessages.Remove(message);
-        }
-        ScrollAgentMessagesToBottom();
-    }
-
-    private void FinalizeAssistantMessage(string threadId, string finalText, DateTime createdAtUtc, string meta)
-    {
-        if (string.IsNullOrWhiteSpace(threadId) || !string.Equals(_selectedAgentThreadId, threadId, StringComparison.Ordinal))
-            return;
-
-        if (_streamingAssistantByThread.TryGetValue(threadId, out var message))
-        {
-            message.Header = $"助手 · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
-            message.Content = string.IsNullOrWhiteSpace(finalText) ? message.Content : finalText;
-            message.Meta = meta;
-            message.CreatedAtUtc = createdAtUtc;
-            _streamingAssistantByThread.Remove(threadId);
-        }
-        else
-        {
-            var newMessage = new AgentChatMessageView
-            {
-                ThreadId = threadId,
-                Role = "助手",
-                Header = $"助手 · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}",
-                Content = finalText ?? "",
-                Meta = meta,
-                CreatedAtUtc = createdAtUtc,
-            };
-            _allThreadMessages.Add(newMessage);
-
-            var query = AgentMessageSearchBox.Text?.Trim() ?? "";
-            if (string.IsNullOrWhiteSpace(query) || MatchesMessageFilter(newMessage, query))
-                _visibleThreadMessages.Add(newMessage);
-        }
-
-        if (!string.IsNullOrWhiteSpace(AgentMessageSearchBox.Text))
-            ApplyAgentMessageFilter();
-        ScrollAgentMessagesToBottom();
-    }
-
-    private void ScrollAgentMessagesToBottom()
-    {
-        if (AgentMessagesList.Items.Count > 0)
-            AgentMessagesList.ScrollIntoView(AgentMessagesList.Items[AgentMessagesList.Items.Count - 1]);
     }
 
     private static bool IsTerminalFocusActive()
@@ -1102,7 +640,6 @@ public partial class MainWindow : Window
             new() { Id = "open-command-history", Label = "打开命令历史", Icon = "\uE81C", Shortcut = "Ctrl+Alt+H", Category = "历史", Execute = OpenCommandHistoryPicker },
             new() { Id = "insert-last-command", Label = "插入上一条命令", Icon = "\uE8A7", Shortcut = "Ctrl+Shift+H", Category = "历史", Execute = InsertLastCommandFromHistory },
             new() { Id = "search", Label = "搜索", Icon = "\uE721", Shortcut = "Ctrl+Shift+F", Category = "视图", Execute = () => ToggleSearch() },
-            new() { Id = "toggle-agent-chat", Label = "切换 Agent 聊天", Icon = "\uE11B", Shortcut = "Ctrl+Shift+A", Category = "视图", Execute = ToggleAgentChat },
             new() { Id = "zoom-pane", Label = "缩放面板", Icon = "\uE740", Shortcut = "Ctrl+Shift+Z", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.ToggleZoom() },
             new() { Id = "focus-next", Label = "聚焦下一面板", Icon = "\uE76C", Shortcut = "Ctrl+Alt+Right", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.FocusNextPane() },
             new() { Id = "focus-prev", Label = "聚焦上一面板", Icon = "\uE76B", Shortcut = "Ctrl+Alt+Left", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.FocusPreviousPane() },
@@ -1198,8 +735,6 @@ public partial class MainWindow : Window
 
     private void RefreshSurfaceUiState()
     {
-        RefreshAgentThreadsIfContextChanged();
-
         var surface = ViewModel.SelectedWorkspace?.SelectedSurface;
         if (surface == null)
         {
@@ -1418,241 +953,9 @@ public partial class MainWindow : Window
         surface.GetSession(paneId)?.Write(last);
     }
 
-    private void AgentThreadSearchBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        RefreshAgentThreads();
-    }
-
-    private void AgentRefreshThreads_Click(object sender, RoutedEventArgs e)
-    {
-        RefreshAgentThreads();
-    }
-
-    private void AgentNewThread_Click(object sender, RoutedEventArgs e)
-    {
-        var context = GetCurrentPaneContext();
-        if (context == null)
-            return;
-
-        var workspaceId = ViewModel.SelectedWorkspace?.Workspace.Id ?? "";
-        var thread = App.AgentConversationStore.CreateThread(
-            workspaceId,
-            context.Value.Surface.Surface.Id,
-            context.Value.PaneId,
-            Cmux.Core.Config.SettingsService.Current.Agent.AgentName);
-
-        App.AgentRuntime.SetActiveThreadId(workspaceId, context.Value.Surface.Surface.Id, context.Value.PaneId, thread.Id);
-        _selectedAgentThreadId = thread.Id;
-        RefreshAgentThreads();
-        SelectAgentThreadInList(thread.Id);
-        AgentStatusText.Text = "已创建新会话";
-    }
-
-    private void AgentThreadsList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (AgentThreadsList.SelectedItem is not AgentThreadView selected)
-            return;
-
-        var switchedThread = !string.Equals(_selectedAgentThreadId, selected.Id, StringComparison.Ordinal);
-        _selectedAgentThreadId = selected.Id;
-
-        var context = GetCurrentPaneContext();
-        if (context != null)
-        {
-            var workspaceId = ViewModel.SelectedWorkspace?.Workspace.Id ?? "";
-            App.AgentRuntime.SetActiveThreadId(workspaceId, context.Value.Surface.Surface.Id, context.Value.PaneId, selected.Id);
-        }
-
-        if (switchedThread || _allThreadMessages.Count == 0 || !_allThreadMessages.All(m => string.Equals(m.ThreadId, selected.Id, StringComparison.Ordinal)))
-            LoadAgentMessages(selected.Id);
-    }
-
-    private void AgentMessageSearchBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        ApplyAgentMessageFilter();
-    }
-
-    private static bool MatchesMessageFilter(AgentChatMessageView message, string query)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-            return true;
-
-        return (message.Content?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (message.Header?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (message.Meta?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
-    }
-
-    private void AgentPromptBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter && !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
-        {
-            SendAgentPromptFromPanel();
-            e.Handled = true;
-        }
-    }
-
-    private void AgentSend_Click(object sender, RoutedEventArgs e)
-    {
-        SendAgentPromptFromPanel();
-    }
-
-    private void SendAgentPromptFromPanel()
-    {
-        var prompt = AgentPromptBox.Text?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(prompt))
-            return;
-
-        var context = GetCurrentPaneContext();
-        if (context == null)
-        {
-            AgentStatusText.Text = "未选中活动面板";
-            return;
-        }
-
-        var workspaceId = ViewModel.SelectedWorkspace?.Workspace.Id ?? "";
-        var threadId = _selectedAgentThreadId;
-        if (string.IsNullOrWhiteSpace(threadId))
-        {
-            var created = App.AgentConversationStore.CreateThread(
-                workspaceId,
-                context.Value.Surface.Surface.Id,
-                context.Value.PaneId,
-                Cmux.Core.Config.SettingsService.Current.Agent.AgentName);
-            threadId = created.Id;
-            _selectedAgentThreadId = threadId;
-        }
-
-        App.AgentRuntime.SetActiveThreadId(workspaceId, context.Value.Surface.Surface.Id, context.Value.PaneId, threadId);
-
-        var session = context.Value.Surface.GetSession(context.Value.PaneId);
-        bool accepted = App.AgentRuntime.TrySendChatPrompt(
-            prompt,
-            new AgentPaneContext
-            {
-                WorkspaceId = workspaceId,
-                SurfaceId = context.Value.Surface.Surface.Id,
-                PaneId = context.Value.PaneId,
-                WorkingDirectory = session?.WorkingDirectory,
-                WriteToPane = text =>
-                {
-                    if (!string.IsNullOrWhiteSpace(text))
-                        session?.Write(text);
-                },
-            },
-            threadId);
-
-        if (!accepted)
-        {
-            AgentStatusText.Text = "Agent 未接受该提示";
-            return;
-        }
-
-        AgentPromptBox.Text = "";
-        AgentStatusText.Text = "提示已发送";
-        RefreshAgentThreads();
-        if (!string.IsNullOrWhiteSpace(threadId))
-            SelectAgentThreadInList(threadId);
-    }
-
     private void OpenSettings()
     {
         var settings = new SettingsWindow { Owner = this };
         settings.ShowDialog();
-    }
-
-    private sealed class AgentThreadView
-    {
-        public string Id { get; init; } = "";
-        public string Title { get; init; } = "";
-        public string Meta { get; init; } = "";
-    }
-
-    private sealed class AgentChatMessageView : INotifyPropertyChanged
-    {
-        private string _threadId = "";
-        private string _role = "";
-        private string _header = "";
-        private string _content = "";
-        private string _meta = "";
-        private DateTime _createdAtUtc = DateTime.UtcNow;
-
-        public string ThreadId
-        {
-            get => _threadId;
-            set
-            {
-                if (string.Equals(_threadId, value, StringComparison.Ordinal))
-                    return;
-                _threadId = value;
-                OnPropertyChanged(nameof(ThreadId));
-            }
-        }
-
-        public string Role
-        {
-            get => _role;
-            set
-            {
-                if (string.Equals(_role, value, StringComparison.Ordinal))
-                    return;
-                _role = value;
-                OnPropertyChanged(nameof(Role));
-            }
-        }
-
-        public string Header
-        {
-            get => _header;
-            set
-            {
-                if (string.Equals(_header, value, StringComparison.Ordinal))
-                    return;
-                _header = value;
-                OnPropertyChanged(nameof(Header));
-            }
-        }
-
-        public string Content
-        {
-            get => _content;
-            set
-            {
-                if (string.Equals(_content, value, StringComparison.Ordinal))
-                    return;
-                _content = value;
-                OnPropertyChanged(nameof(Content));
-            }
-        }
-
-        public string Meta
-        {
-            get => _meta;
-            set
-            {
-                if (string.Equals(_meta, value, StringComparison.Ordinal))
-                    return;
-                _meta = value;
-                OnPropertyChanged(nameof(Meta));
-            }
-        }
-
-        public DateTime CreatedAtUtc
-        {
-            get => _createdAtUtc;
-            set
-            {
-                if (_createdAtUtc == value)
-                    return;
-                _createdAtUtc = value;
-                OnPropertyChanged(nameof(CreatedAtUtc));
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        private void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
     }
 }

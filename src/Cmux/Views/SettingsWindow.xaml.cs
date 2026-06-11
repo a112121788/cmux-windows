@@ -40,7 +40,6 @@ public partial class SettingsWindow : Window
             .OrderBy(name => name)
             .ToList();
         FontFamilyCombo.ItemsSource = fontFamilies;
-        AgentChatFontFamilyCombo.ItemsSource = fontFamilies;
 
         // Detect available shells
         var shells = ShellDetector.DetectShells();
@@ -134,11 +133,6 @@ public partial class SettingsWindow : Window
         AgentSkillsRootPathBox.Text = agent.SkillsRootPath ?? "";
         AgentMemoryCheck.IsChecked = agent.EnableConversationMemory;
         AgentStreamingCheck.IsChecked = agent.EnableStreaming;
-        var chatFontFamily = string.IsNullOrWhiteSpace(agent.ChatFontFamily) ? s.FontFamily : agent.ChatFontFamily;
-        AgentChatFontFamilyCombo.SelectedItem = chatFontFamily;
-        if (AgentChatFontFamilyCombo.SelectedItem == null)
-            AgentChatFontFamilyCombo.Text = chatFontFamily;
-        AgentChatFontSizeBox.Text = Math.Clamp(agent.ChatFontSize, 9, 28).ToString();
         AgentAutoCompactCheck.IsChecked = agent.AutoCompactContext;
         AgentContextMaxMessagesBox.Text = Math.Clamp(agent.MaxContextMessages, 8, 500).ToString();
         AgentContextBudgetTokensBox.Text = Math.Clamp(agent.ContextBudgetTokens, 2048, 1_000_000).ToString();
@@ -271,11 +265,6 @@ public partial class SettingsWindow : Window
         agent.SkillsRootPath = AgentSkillsRootPathBox.Text?.Trim() ?? "";
         agent.EnableConversationMemory = AgentMemoryCheck.IsChecked == true;
         agent.EnableStreaming = AgentStreamingCheck.IsChecked == true;
-        agent.ChatFontFamily = (AgentChatFontFamilyCombo.SelectedItem as string ?? AgentChatFontFamilyCombo.Text ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(agent.ChatFontFamily))
-            agent.ChatFontFamily = s.FontFamily;
-        if (int.TryParse(AgentChatFontSizeBox.Text, out var chatFontSize))
-            agent.ChatFontSize = Math.Clamp(chatFontSize, 9, 28);
         agent.AutoCompactContext = AgentAutoCompactCheck.IsChecked == true;
         if (int.TryParse(AgentContextMaxMessagesBox.Text, out var maxContextMessages))
             agent.MaxContextMessages = Math.Clamp(maxContextMessages, 8, 500);
