@@ -532,13 +532,13 @@ public partial class SettingsWindow : Window
 
         if (string.IsNullOrWhiteSpace(draft.Name))
         {
-            MessageBox.Show("Custom tool name is required.", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("自定义工具名称不能为空。", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(draft.CommandTemplate))
         {
-            MessageBox.Show("Custom tool command template is required.", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("自定义工具的命令模板不能为空。", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -575,13 +575,13 @@ public partial class SettingsWindow : Window
 
         if (string.IsNullOrWhiteSpace(draft.Name))
         {
-            MessageBox.Show("MCP server name is required.", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("MCP 服务器名称不能为空。", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(draft.Command))
         {
-            MessageBox.Show("MCP server command is required.", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("MCP 服务器命令不能为空。", "Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -640,7 +640,7 @@ public partial class SettingsWindow : Window
             using var doc = JsonDocument.Parse(text);
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
             {
-                error = "Custom tools JSON must be an array.";
+                error = "自定义工具 JSON 必须是数组。";
                 return false;
             }
 
@@ -649,7 +649,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            error = $"Invalid custom tools JSON: {ex.Message}";
+            error = $"自定义工具 JSON 解析失败：{ex.Message}";
             return false;
         }
     }
@@ -666,7 +666,7 @@ public partial class SettingsWindow : Window
             using var doc = JsonDocument.Parse(text);
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
             {
-                error = "MCP servers JSON must be an array.";
+                error = "MCP 服务器 JSON 必须是数组。";
                 return false;
             }
 
@@ -675,7 +675,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            error = $"Invalid MCP servers JSON: {ex.Message}";
+            error = $"MCP 服务器 JSON 解析失败：{ex.Message}";
             return false;
         }
     }
@@ -692,7 +692,7 @@ public partial class SettingsWindow : Window
             using var doc = JsonDocument.Parse(text);
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
             {
-                error = "Submit profiles JSON must be an array.";
+                error = "提交配置 JSON 必须是数组。";
                 return false;
             }
 
@@ -701,7 +701,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            error = $"Invalid submit profiles JSON: {ex.Message}";
+            error = $"提交配置 JSON 解析失败：{ex.Message}";
             return false;
         }
     }
@@ -718,19 +718,19 @@ public partial class SettingsWindow : Window
 
             if (string.IsNullOrWhiteSpace(t.Name))
             {
-                error = $"Custom tool at index {row} is missing 'name'.";
+                error = $"自定义工具第 {row} 项缺少 name 字段。";
                 return false;
             }
 
             if (!names.Add(t.Name.Trim()))
             {
-                error = $"Duplicate custom tool name: '{t.Name}'.";
+                error = $"自定义工具名称重复：'{t.Name}'。";
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(t.CommandTemplate))
             {
-                error = $"Custom tool '{t.Name}' is missing 'commandTemplate'.";
+                error = $"自定义工具 '{t.Name}' 缺少 commandTemplate 字段。";
                 return false;
             }
         }
@@ -751,19 +751,19 @@ public partial class SettingsWindow : Window
 
             if (string.IsNullOrWhiteSpace(s.Name))
             {
-                error = $"MCP server at index {row} is missing 'name'.";
+                error = $"MCP 服务器第 {row} 项缺少 name 字段。";
                 return false;
             }
 
             if (!names.Add(s.Name.Trim()))
             {
-                error = $"Duplicate MCP server name: '{s.Name}'.";
+                error = $"MCP 服务器名称重复：'{s.Name}'。";
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(s.Command))
             {
-                error = $"MCP server '{s.Name}' is missing 'command'.";
+                error = $"MCP 服务器 '{s.Name}' 缺少 command 字段。";
                 return false;
             }
         }
@@ -784,20 +784,20 @@ public partial class SettingsWindow : Window
 
             if (string.IsNullOrWhiteSpace(p.Name))
             {
-                error = $"Submit profile at index {row} is missing 'name'.";
+                error = $"提交配置第 {row} 项缺少 name 字段。";
                 return false;
             }
 
             if (!names.Add(p.Name.Trim()))
             {
-                error = $"Duplicate submit profile name: '{p.Name}'.";
+                error = $"提交配置名称重复：'{p.Name}'。";
                 return false;
             }
 
             var normalizedOrder = (p.SubmitOrder ?? "").Trim();
             if (string.IsNullOrWhiteSpace(normalizedOrder))
             {
-                error = $"Submit profile '{p.Name}' is missing 'submitOrder'.";
+                error = $"提交配置 '{p.Name}' 缺少 submitOrder 字段。";
                 return false;
             }
 
@@ -806,7 +806,7 @@ public partial class SettingsWindow : Window
                 var key = token.Trim().ToLowerInvariant();
                 if (key is not ("enter" or "linefeed" or "crlf" or "lf" or "cr" or "ctrl+j" or "ctrl+m"))
                 {
-                    error = $"Submit profile '{p.Name}' has unsupported submit key '{token}'.";
+                    error = $"提交配置 '{p.Name}' 包含不支持的回车键 '{token}'。";
                     return false;
                 }
             }

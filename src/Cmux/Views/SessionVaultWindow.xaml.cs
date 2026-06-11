@@ -127,7 +127,7 @@ public partial class SessionVaultWindow : Window
             .ToList();
 
         EntriesList.ItemsSource = views;
-        SummaryText.Text = views.Count == 1 ? "1 capture" : $"{views.Count} captures";
+        SummaryText.Text = views.Count == 1 ? "1 条记录" : $"{views.Count} 条记录";
 
         if (views.Count > 0)
             EntriesList.SelectedIndex = 0;
@@ -149,7 +149,7 @@ public partial class SessionVaultWindow : Window
         var surface = ResolveSurfaceName(e.SurfaceId);
         var pane = ShortId(e.PaneId);
 
-        MetaTitleText.Text = $"{workspace} / {surface} / Pane {pane}";
+        MetaTitleText.Text = $"{workspace} / {surface} / 面板 {pane}";
         MetaInfoText.Text = $"{e.CapturedAt.ToLocalTime():yyyy-MM-dd HH:mm:ss} · reason: {e.Reason} · cwd: {(string.IsNullOrWhiteSpace(e.WorkingDirectory) ? "-" : e.WorkingDirectory)}";
         TranscriptText.Text = App.CommandLogService.LoadTerminalTranscriptContent(e.FilePath);
         TranscriptText.ScrollToHome();
@@ -178,7 +178,7 @@ public partial class SessionVaultWindow : Window
         }
         catch
         {
-            MessageBox.Show($"Session vault folder: {dir}", "Session Vault", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"会话存档目录：{dir}", "会话存档", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
@@ -217,7 +217,7 @@ public partial class SessionVaultWindow : Window
         }
         catch
         {
-            MessageBox.Show(selected.Entry.FilePath, "Session Vault", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(selected.Entry.FilePath, "会话存档", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 

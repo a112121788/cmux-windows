@@ -2,11 +2,13 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Cmux.Core.Config;
@@ -43,6 +45,8 @@ public class TerminalControl : FrameworkElement
     // Cursor blink timer
     private System.Windows.Threading.DispatcherTimer? _cursorTimer;
     private bool _cursorVisible = true;
+    private bool _nativeCaretCreated;
+    private IntPtr _nativeCaretHwnd;
 
     // Visual bell
     private DateTime _bellFlashUntil;
@@ -68,7 +72,20 @@ public class TerminalControl : FrameworkElement
     private Typeface? _typefaceItalic;
     private Typeface? _typefaceBoldItalic;
     private readonly StringBuilder _textRunBuffer = new();
+    private readonly List<(char Character, int Width)> _textRunCells = [];
     private bool _suppressNextEnterTextInput;
+
+    private static readonly string[] TerminalFontFallbacks =
+    [
+        "Cascadia Mono",
+        "Cascadia Code",
+        "Consolas",
+        "Courier New",
+    ];
+
+    private const byte DimTextAlpha = 90;
+
+    private static readonly Dictionary<string, FontFamily> TerminalFontFamilyCache = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Fired when the pane wants focus.</summary>
     public event Action? FocusRequested;
@@ -126,7 +143,7 @@ public class TerminalControl : FrameworkElement
         AddLogicalChild(_visual);
 
         _fontSize = _theme.FontSize;
-        _typeface = new Typeface(new FontFamily(_theme.FontFamily), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        _typeface = CreateTerminalTypeface(_theme.FontFamily, FontStyles.Normal, FontWeights.Normal);
 
         var settings = SettingsService.Current;
         _cursorStyle = settings.CursorStyle;
@@ -138,6 +155,10 @@ public class TerminalControl : FrameworkElement
         ClipToBounds = true;
         Cursor = Cursors.Arrow;
         AllowDrop = true;
+        InputMethod.SetIsInputMethodEnabled(this, true);
+        TextCompositionManager.AddTextInputStartHandler(this, OnImeTextInputPositionChanged);
+        TextCompositionManager.AddTextInputUpdateHandler(this, OnImeTextInputPositionChanged);
+        Unloaded += (_, _) => DestroyNativeCaret();
 
         _selection.SelectionChanged += () => RequestRender(System.Windows.Threading.DispatcherPriority.Render);
 
@@ -350,9 +371,9 @@ public class TerminalControl : FrameworkElement
     private Typeface GetTypeface(bool bold, bool italic)
     {
         if (!bold && !italic) return _typeface;
-        if (bold && !italic) return _typefaceBold ??= new Typeface(new FontFamily(_theme.FontFamily), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
-        if (!bold && italic) return _typefaceItalic ??= new Typeface(new FontFamily(_theme.FontFamily), FontStyles.Italic, FontWeights.Normal, FontStretches.Normal);
-        return _typefaceBoldItalic ??= new Typeface(new FontFamily(_theme.FontFamily), FontStyles.Italic, FontWeights.Bold, FontStretches.Normal);
+        if (bold && !italic) return _typefaceBold ??= CreateTerminalTypeface(_theme.FontFamily, FontStyles.Normal, FontWeights.Bold);
+        if (!bold && italic) return _typefaceItalic ??= CreateTerminalTypeface(_theme.FontFamily, FontStyles.Italic, FontWeights.Normal);
+        return _typefaceBoldItalic ??= CreateTerminalTypeface(_theme.FontFamily, FontStyles.Italic, FontWeights.Bold);
     }
 
     private void Render()
@@ -422,6 +443,7 @@ public class TerminalControl : FrameworkElement
                 bool runBold = false, runItalic = false, runDim = false;
                 bool runUnderline = false, runStrikethrough = false;
                 _textRunBuffer.Clear();
+                _textRunCells.Clear();
 
                 for (int c = 0; c < _cols; c++)
                 {
@@ -516,9 +538,11 @@ public class TerminalControl : FrameworkElement
                             runUnderline = underline;
                             runStrikethrough = strikethrough;
                             _textRunBuffer.Clear();
+                            _textRunCells.Clear();
                         }
 
                         _textRunBuffer.Append(cell.Character);
+                        _textRunCells.Add((cell.Character, Math.Max(1, cell.Width)));
                     }
                     else if (runStartCol >= 0)
                     {
@@ -578,6 +602,8 @@ public class TerminalControl : FrameworkElement
                     new Rect(ix, 6, iw, ih), 4, 4);
                 dc.DrawText(indicatorText, new Point(ix + 6, 8));
             }
+
+            UpdateImeCaretPosition();
         }
         catch (Exception ex)
         {
@@ -594,9 +620,18 @@ public class TerminalControl : FrameworkElement
         if (_textRunBuffer.Length == 0) return;
 
         var brush = dim
-            ? GetCachedBrush(Color.FromArgb(128, fgColor.R, fgColor.G, fgColor.B))
+            ? GetCachedBrush(Color.FromArgb(DimTextAlpha, fgColor.R, fgColor.G, fgColor.B))
             : GetCachedBrush(fgColor);
         var tf = GetTypeface(bold, italic);
+        double x = startCol * _cellWidth;
+        double runColumns = 0;
+        foreach (var (_, width) in _textRunCells)
+            runColumns += Math.Max(1, width);
+
+        if (runColumns <= 0)
+            runColumns = _textRunBuffer.Length;
+
+        double runWidth = runColumns * _cellWidth;
         var text = new FormattedText(
             _textRunBuffer.ToString(),
             CultureInfo.CurrentCulture,
@@ -606,10 +641,29 @@ public class TerminalControl : FrameworkElement
             brush,
             dpi);
 
-        double x = startCol * _cellWidth;
-        dc.DrawText(text, new Point(x, y));
+        if (Math.Abs(text.WidthIncludingTrailingWhitespace - runWidth) <= 0.5)
+        {
+            dc.DrawText(text, new Point(x, y));
+        }
+        else
+        {
+            // Fall back to fixed-cell placement for missing/proportional fonts.
+            double colOffset = 0;
+            foreach (var (character, width) in _textRunCells)
+            {
+                var cellText = new FormattedText(
+                    character.ToString(),
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    tf,
+                    _fontSize,
+                    brush,
+                    dpi);
 
-        double runWidth = _textRunBuffer.Length * _cellWidth;
+                dc.DrawText(cellText, new Point(x + colOffset * _cellWidth, y));
+                colOffset += Math.Max(1, width);
+            }
+        }
 
         if (underline)
         {
@@ -628,6 +682,136 @@ public class TerminalControl : FrameworkElement
 
     private static Color ToWpfColor(TerminalColor c) =>
         c.IsDefault ? Colors.Transparent : Color.FromRgb(c.R, c.G, c.B);
+
+    private void OnImeTextInputPositionChanged(object sender, TextCompositionEventArgs e) =>
+        UpdateImeCaretPosition();
+
+    private void UpdateImeCaretPosition()
+    {
+        try
+        {
+            if (_session == null || !IsKeyboardFocusWithin || _cellWidth <= 0 || _cellHeight <= 0)
+            {
+                DestroyNativeCaret();
+                return;
+            }
+
+            if (PresentationSource.FromVisual(this) is not HwndSource source ||
+                source.Handle == IntPtr.Zero ||
+                source.CompositionTarget == null)
+            {
+                DestroyNativeCaret();
+                return;
+            }
+
+            var buffer = _session.Buffer;
+            int cursorCol = Math.Clamp(buffer.CursorCol, 0, Math.Max(0, buffer.Cols - 1));
+            int cursorRow = Math.Clamp(buffer.CursorRow, 0, Math.Max(0, buffer.Rows - 1));
+            var caretTopLeft = new Point(cursorCol * _cellWidth, cursorRow * _cellHeight);
+            var caretTopLeftPx = ToHwndClientPixel(source, caretTopLeft);
+
+            var deviceSize = source.CompositionTarget.TransformToDevice.Transform(new Vector(_cellWidth, _cellHeight));
+            int cellHeight = Math.Max(1, (int)Math.Ceiling(Math.Abs(deviceSize.Y)));
+            var hwnd = source.Handle;
+
+            if (!_nativeCaretCreated || _nativeCaretHwnd != hwnd)
+            {
+                DestroyNativeCaret();
+                _nativeCaretCreated = CreateCaret(hwnd, IntPtr.Zero, 1, cellHeight);
+                _nativeCaretHwnd = _nativeCaretCreated ? hwnd : IntPtr.Zero;
+                if (_nativeCaretCreated)
+                    _ = ShowCaret(hwnd);
+            }
+
+            if (_nativeCaretCreated)
+                _ = SetCaretPos(caretTopLeftPx.X, caretTopLeftPx.Y);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[TerminalControl] IME caret positioning failed: {ex}");
+        }
+    }
+
+    private void DestroyNativeCaret()
+    {
+        if (!_nativeCaretCreated)
+            return;
+
+        _ = HideCaret(_nativeCaretHwnd);
+        _ = DestroyCaret();
+        _nativeCaretCreated = false;
+        _nativeCaretHwnd = IntPtr.Zero;
+    }
+
+    private NativePoint ToHwndClientPixel(HwndSource source, Point localPoint)
+    {
+        Point rootPoint = localPoint;
+        if (source.RootVisual is Visual rootVisual && !ReferenceEquals(rootVisual, this))
+        {
+            try
+            {
+                rootPoint = TransformToAncestor(rootVisual).Transform(localPoint);
+            }
+            catch (InvalidOperationException)
+            {
+                rootPoint = localPoint;
+            }
+        }
+
+        var devicePoint = source.CompositionTarget.TransformToDevice.Transform(rootPoint);
+        return new NativePoint((int)Math.Round(devicePoint.X), (int)Math.Round(devicePoint.Y));
+    }
+
+    private static Typeface CreateTerminalTypeface(string? preferredFamily, FontStyle style, FontWeight weight) =>
+        new(ResolveTerminalFontFamily(preferredFamily), style, weight, FontStretches.Normal);
+
+    private static FontFamily ResolveTerminalFontFamily(string? preferredFamily)
+    {
+        var key = string.IsNullOrWhiteSpace(preferredFamily) ? "" : preferredFamily.Trim();
+
+        lock (TerminalFontFamilyCache)
+        {
+            if (TerminalFontFamilyCache.TryGetValue(key, out var cached))
+                return cached;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in GetTerminalFontCandidates(key))
+        {
+            if (!seen.Add(candidate))
+                continue;
+
+            if (IsInstalledFontFamily(candidate))
+            {
+                var resolved = new FontFamily(candidate);
+                lock (TerminalFontFamilyCache)
+                    TerminalFontFamilyCache[key] = resolved;
+                return resolved;
+            }
+        }
+
+        var fallback = new FontFamily("Consolas");
+        lock (TerminalFontFamilyCache)
+            TerminalFontFamilyCache[key] = fallback;
+        return fallback;
+    }
+
+    private static IEnumerable<string> GetTerminalFontCandidates(string preferredFamily)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredFamily))
+        {
+            foreach (var candidate in preferredFamily.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                yield return candidate;
+        }
+
+        foreach (var fallback in TerminalFontFallbacks)
+            yield return fallback;
+    }
+
+    private static bool IsInstalledFontFamily(string familyName) =>
+        Fonts.SystemFontFamilies.Any(font =>
+            string.Equals(font.Source, familyName, StringComparison.OrdinalIgnoreCase) ||
+            font.FamilyNames.Values.Any(name => string.Equals(name, familyName, StringComparison.OrdinalIgnoreCase)));
 
     // --- Mouse reporting ---
 
@@ -769,6 +953,7 @@ public class TerminalControl : FrameworkElement
     protected override void OnKeyDown(KeyEventArgs e)
     {
         if (_session == null) return;
+        UpdateImeCaretPosition();
 
         var modifiers = Keyboard.Modifiers;
         bool ctrl = modifiers.HasFlag(ModifierKeys.Control);
@@ -1480,6 +1665,18 @@ public class TerminalControl : FrameworkElement
     protected override int VisualChildrenCount => 1;
     protected override Visual GetVisualChild(int index) => _visual;
 
+    protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnGotKeyboardFocus(e);
+        UpdateImeCaretPosition();
+    }
+
+    protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        DestroyNativeCaret();
+        base.OnLostKeyboardFocus(e);
+    }
+
     private static bool TryGetCtrlLetterSequence(Key key, out string sequence)
     {
         sequence = "";
@@ -1540,10 +1737,37 @@ public class TerminalControl : FrameworkElement
         };
     }
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateCaret(IntPtr hwnd, IntPtr hBitmap, int width, int height);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetCaretPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowCaret(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool HideCaret(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyCaret();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct NativePoint(int x, int y)
+    {
+        public readonly int X = x;
+        public readonly int Y = y;
+    }
+
     public void UpdateTheme(GhosttyTheme theme)
     {
         _theme = theme;
-        _typeface = new Typeface(new FontFamily(theme.FontFamily), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        _typeface = CreateTerminalTypeface(theme.FontFamily, FontStyles.Normal, FontWeights.Normal);
         _fontSize = theme.FontSize;
         InvalidateRenderCaches();
         CalculateCellSize();
@@ -1576,7 +1800,7 @@ public class TerminalControl : FrameworkElement
         _cursorStyle = settings.CursorStyle;
         _cursorBlink = settings.CursorBlink;
 
-        _typeface = new Typeface(new FontFamily(fontFamily), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        _typeface = CreateTerminalTypeface(fontFamily, FontStyles.Normal, FontWeights.Normal);
         InvalidateRenderCaches();
         CalculateCellSize();
         CalculateTerminalSize();

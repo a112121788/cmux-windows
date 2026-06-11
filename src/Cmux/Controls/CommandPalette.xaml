@@ -100,7 +100,7 @@
 
             <!-- Empty state -->
             <TextBlock x:Name="EmptyText" Grid.Row="1"
-                       Text="No matching commands" Foreground="{StaticResource ForegroundDimBrush}"
+                       Text="没有匹配的命令" Foreground="{StaticResource ForegroundDimBrush}"
                        FontSize="13" HorizontalAlignment="Center"
                        Margin="0,20,0,20" Visibility="Collapsed" />
         </Grid>

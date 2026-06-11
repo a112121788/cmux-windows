@@ -27,11 +27,11 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="Notifications" FontSize="14"
+                    <TextBlock Grid.Column="0" Text="通知" FontSize="14"
                                FontWeight="SemiBold" Foreground="{StaticResource ForegroundBrush}"
                                VerticalAlignment="Center" />
 
-                    <Button Grid.Column="1" Content="Mark all read"
+                    <Button Grid.Column="1" Content="全部标为已读"
                             Style="{StaticResource CmuxButton}"
                             FontSize="11" Margin="0,0,4,0" Padding="8,4"
                             Foreground="{StaticResource ForegroundDimBrush}"

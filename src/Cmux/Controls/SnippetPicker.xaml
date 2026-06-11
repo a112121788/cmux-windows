@@ -19,7 +19,7 @@
             <!-- Header -->
             <Border Grid.Row="0" Padding="16,12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                 <Grid>
-                    <TextBlock Text="Snippets" FontSize="16" FontWeight="SemiBold"
+                    <TextBlock Text="代码片段" FontSize="16" FontWeight="SemiBold"
                                Foreground="{StaticResource ForegroundBrush}" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button Content="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12"
@@ -59,22 +59,22 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="EditorTitle" Grid.Row="0" Grid.ColumnSpan="2"
-                               Text="New snippet" Foreground="{StaticResource ForegroundBrush}" FontWeight="SemiBold"
+                               Text="新建片段" Foreground="{StaticResource ForegroundBrush}" FontWeight="SemiBold"
                                Margin="0,0,0,8" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Name" Foreground="{StaticResource ForegroundDimBrush}"
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="名称" Foreground="{StaticResource ForegroundDimBrush}"
                                Margin="0,2,8,8" VerticalAlignment="Center" />
                     <TextBox Grid.Row="1" Grid.Column="1" x:Name="NewSnippetName"
                              Style="{StaticResource CmuxTextBox}" Padding="6,4" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Category" Foreground="{StaticResource ForegroundDimBrush}"
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="分类" Foreground="{StaticResource ForegroundDimBrush}"
                                Margin="0,10,8,8" VerticalAlignment="Center" />
                     <TextBox Grid.Row="2" Grid.Column="1" x:Name="NewSnippetCategory"
                              Margin="0,8,0,0"
                              Style="{StaticResource CmuxTextBox}" Padding="6,4"
                              Text="Custom" />
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Command" Foreground="{StaticResource ForegroundDimBrush}"
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="命令" Foreground="{StaticResource ForegroundDimBrush}"
                                Margin="0,10,8,8" VerticalAlignment="Top" />
                     <TextBox Grid.Row="3" Grid.Column="1" x:Name="NewSnippetContent"
                              Margin="0,8,0,0" MinHeight="64" MaxHeight="120"
@@ -84,10 +84,10 @@
 
                     <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal"
                                 HorizontalAlignment="Right" Margin="0,10,0,0">
-                        <Button Content="Cancel" Padding="10,4" Margin="0,0,6,0"
+                        <Button Content="取消" Padding="10,4" Margin="0,0,6,0"
                                 Style="{StaticResource CmuxButton}"
                                 Click="CancelNewSnippet_Click" />
-                        <Button x:Name="SaveSnippetButton" Content="Save Snippet" Padding="10,4"
+                        <Button x:Name="SaveSnippetButton" Content="保存片段" Padding="10,4"
                                 Style="{StaticResource AccentButton}"
                                 Click="SaveNewSnippet_Click" />
                     </StackPanel>
@@ -144,7 +144,7 @@
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Width="24" Height="20" Padding="0" Background="Transparent"
                                         BorderThickness="0" Cursor="Hand" Click="ToggleFavorite_Click"
-                                        ToolTip="Toggle favorite">
+                                        ToolTip="切换收藏">
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Foreground" Value="{StaticResource ForegroundDimBrush}" />
@@ -160,14 +160,14 @@
 
                                 <Button Width="24" Height="20" Padding="0" Background="Transparent"
                                         BorderThickness="0" Cursor="Hand" Click="EditSnippet_Click"
-                                        Foreground="{StaticResource ForegroundDimBrush}" ToolTip="Edit snippet">
+                                        Foreground="{StaticResource ForegroundDimBrush}" ToolTip="编辑片段">
                                     <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Button>
 
                                 <Button Width="24" Height="20" Padding="0" Background="Transparent"
                                         BorderThickness="0" Cursor="Hand" Click="DeleteSnippet_Click"
-                                        Foreground="{StaticResource ErrorBrush}" ToolTip="Delete snippet">
+                                        Foreground="{StaticResource ErrorBrush}" ToolTip="删除片段">
                                     <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Button>
@@ -179,7 +179,7 @@
 
             <!-- Empty state -->
             <TextBlock x:Name="EmptyText" Grid.Row="3"
-                       Text="No snippets found" Foreground="{StaticResource ForegroundDimBrush}"
+                       Text="未找到代码片段" Foreground="{StaticResource ForegroundDimBrush}"
                        FontSize="13" HorizontalAlignment="Center"
                        Margin="0,20,0,20" Visibility="Collapsed" />
         </Grid>

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Cmux.Core.Terminal;
 
 /// <summary>
@@ -123,6 +125,8 @@ public class TerminalBuffer
         if (!ClampCursorToBounds())
             return;
 
+        int width = IsWideChar(c) ? 2 : 1;
+
         if (_wrapPending && AutoWrapMode)
         {
             CarriageReturn();
@@ -130,11 +134,16 @@ public class TerminalBuffer
             _wrapPending = false;
         }
 
+        if (CursorCol + width > Cols && AutoWrapMode)
+        {
+            CarriageReturn();
+            LineFeed();
+        }
+
         if (InsertMode)
         {
-            // Shift characters right
-            for (int col = Cols - 1; col > CursorCol; col--)
-                _cells[CursorRow, col] = _cells[CursorRow, col - 1];
+            for (int col = Cols - 1; col >= CursorCol + width; col--)
+                _cells[CursorRow, col] = _cells[CursorRow, col - width];
         }
 
         if (CursorRow >= 0 && CursorRow < Rows && CursorCol >= 0 && CursorCol < Cols)
@@ -144,24 +153,60 @@ public class TerminalBuffer
                 Character = c,
                 Attribute = CurrentAttribute,
                 IsDirty = true,
-                Width = 1,
+                Width = (byte)width,
             };
+
+            if (width == 2 && CursorCol + 1 < Cols)
+            {
+                _cells[CursorRow, CursorCol + 1] = new TerminalCell
+                {
+                    Character = '\0',
+                    Attribute = CurrentAttribute,
+                    IsDirty = true,
+                    Width = 0,
+                };
+            }
         }
 
-        if (CursorCol + 1 >= Cols)
+        if (CursorCol + width >= Cols)
         {
             _wrapPending = true;
         }
         else
         {
-            CursorCol++;
+            CursorCol += width;
         }
     }
 
     public void WriteString(string text)
     {
-        foreach (var c in text)
-            WriteChar(c);
+        if (string.IsNullOrEmpty(text)) return;
+        var enumerator = StringInfo.GetTextElementEnumerator(text);
+        while (enumerator.MoveNext())
+        {
+            var element = (string)enumerator.Current;
+            if (element.Length > 0)
+                WriteChar(element[0]);
+        }
+    }
+    private static bool IsWideChar(char c)
+    {
+        int code = c;
+        if (code < 0x1100) return false;
+
+        if (code >= 0x2E80 && code <= 0x2FFB) return true;
+        if (code >= 0x3000 && code <= 0x303E) return true;
+        if (code >= 0x3041 && code <= 0x33FF) return true;
+        if (code >= 0x3400 && code <= 0x4DBF) return true;
+        if (code >= 0x4E00 && code <= 0x9FFF) return true;
+        if (code >= 0xA000 && code <= 0xA4CF) return true;
+        if (code >= 0xAC00 && code <= 0xD7A3) return true;
+        if (code >= 0xF900 && code <= 0xFAFF) return true;
+        if (code >= 0xFE30 && code <= 0xFE4F) return true;
+        if (code >= 0xFF00 && code <= 0xFF60) return true;
+        if (code >= 0xFFE0 && code <= 0xFFE6) return true;
+
+        return false;
     }
 
     public void CarriageReturn()

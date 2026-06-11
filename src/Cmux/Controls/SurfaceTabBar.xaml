@@ -28,14 +28,14 @@
                         </Border.Background>
                         <Border.ContextMenu>
                             <ContextMenu Tag="{Binding}">
-                                <MenuItem Header="Rename" Click="RenameTab_Click" />
-                                <MenuItem Header="Duplicate" Click="DuplicateTab_Click" />
+                                <MenuItem Header="重命名" Click="RenameTab_Click" />
+                                <MenuItem Header="复制" Click="DuplicateTab_Click" />
                                 <Separator />
-                                <MenuItem Header="Split Right" InputGestureText="Ctrl+D" Click="SplitRight_Click" />
-                                <MenuItem Header="Split Down" InputGestureText="Ctrl+Shift+D" Click="SplitDown_Click" />
+                                <MenuItem Header="向右分屏" InputGestureText="Ctrl+D" Click="SplitRight_Click" />
+                                <MenuItem Header="向下分屏" InputGestureText="Ctrl+Shift+D" Click="SplitDown_Click" />
                                 <Separator />
-                                <MenuItem Header="Close" InputGestureText="Ctrl+W" Click="CloseThisTab_Click" />
-                                <MenuItem Header="Close Others" Click="CloseOtherTabs_Click" />
+                                <MenuItem Header="关闭" InputGestureText="Ctrl+W" Click="CloseThisTab_Click" />
+                                <MenuItem Header="关闭其他" Click="CloseOtherTabs_Click" />
                             </ContextMenu>
                         </Border.ContextMenu>
                         <Grid>
@@ -144,10 +144,10 @@
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,0,2,0">
                     <Button Content="&#xE010;" FontFamily="Segoe MDL2 Assets"
                             FontSize="9" Style="{StaticResource IconButton}"
-                            Width="20" Height="20" Click="PrevMatch_Click" ToolTip="Previous (Shift+Enter)" />
+                            Width="20" Height="20" Click="PrevMatch_Click" ToolTip="上一个（Shift+Enter）" />
                     <Button Content="&#xE011;" FontFamily="Segoe MDL2 Assets"
                             FontSize="9" Style="{StaticResource IconButton}"
-                            Width="20" Height="20" Click="NextMatch_Click" ToolTip="Next (Enter)" />
+                            Width="20" Height="20" Click="NextMatch_Click" ToolTip="下一个（Enter）" />
                 </StackPanel>
             </Grid>
         </Border>

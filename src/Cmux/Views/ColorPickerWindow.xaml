@@ -1,7 +1,7 @@
 <Window x:Class="Cmux.Views.ColorPickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Accent Color" Height="360" Width="420"
+        Title="主题色" Height="360" Width="420"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent"
@@ -29,7 +29,7 @@
                     CornerRadius="10,10,0,0"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                 <Grid>
-                    <TextBlock Text="Accent Color" Foreground="{StaticResource ForegroundDimBrush}"
+                    <TextBlock Text="主题色" Foreground="{StaticResource ForegroundDimBrush}"
                                FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0" />
                     <Button Style="{StaticResource WindowCloseButton}" HorizontalAlignment="Right"
                             WindowChrome.IsHitTestVisibleInChrome="True"
@@ -51,14 +51,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="Workspace Accent Color"
+                <TextBlock Grid.Row="0" Text="工作区主题色"
                            Foreground="{StaticResource ForegroundBrush}" FontWeight="SemiBold" FontSize="15" />
 
                 <Border Grid.Row="1" Margin="0,12,0,10" Height="46" CornerRadius="6"
                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                         Background="{Binding ElementName=PreviewBrushHost, Path=Background}">
                     <Grid x:Name="PreviewBrushHost" Background="#FF818CF8">
-                        <TextBlock Text="Preview" Foreground="White" FontWeight="SemiBold"
+                        <TextBlock Text="预览" Foreground="White" FontWeight="SemiBold"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
@@ -103,8 +103,8 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                    <Button Content="Cancel" Style="{StaticResource CmuxButton}" Padding="12,6" Margin="0,0,8,0" Click="Cancel_Click" />
-                    <Button Content="Apply" Style="{StaticResource AccentButton}" Padding="14,6" Click="Apply_Click" />
+                    <Button Content="取消" Style="{StaticResource CmuxButton}" Padding="12,6" Margin="0,0,8,0" Click="Cancel_Click" />
+                    <Button Content="应用" Style="{StaticResource AccentButton}" Padding="14,6" Click="Apply_Click" />
                 </StackPanel>
             </Grid>
         </Grid>

@@ -55,7 +55,7 @@ public partial class HistoryWindow : Window
             .ToList();
 
         EntriesList.ItemsSource = entries;
-        SummaryText.Text = entries.Count == 1 ? "1 command" : $"{entries.Count} commands";
+        SummaryText.Text = entries.Count == 1 ? "1 条命令" : $"{entries.Count} 条命令";
 
         if (entries.Count > 0 && EntriesList.SelectedIndex < 0)
             EntriesList.SelectedIndex = 0;

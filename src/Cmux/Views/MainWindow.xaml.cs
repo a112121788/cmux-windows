@@ -190,10 +190,10 @@ public partial class MainWindow : Window
         DaemonStatusDot.Fill = connected
             ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x34, 0xD3, 0x99)) // green
             : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6B, 0x72, 0x80)); // gray
-        DaemonStatusText.Text = connected ? "Daemon" : "Local";
+        DaemonStatusText.Text = connected ? "守护进程" : "本地";
         DaemonStatusBorder.ToolTip = connected
-            ? "Connected to cmux-daemon — sessions persist across restarts"
-            : "Running locally — sessions will not persist";
+            ? "已连接到 cmux-daemon——会话将在重启后保留"
+            : "本地运行——重启后会话不会保留";
     }
 
     private void UpdateWindowChrome()
@@ -204,7 +204,7 @@ public partial class MainWindow : Window
         WindowBorder.BorderThickness = maximized ? new Thickness(0) : new Thickness(1);
         // Update maximize/restore icon
         MaxRestoreIcon.Text = maximized ? "\uE923" : "\uE922";
-        MaxRestoreButton.ToolTip = maximized ? "Restore" : "Maximize";
+        MaxRestoreButton.ToolTip = maximized ? "还原" : "最大化";
         UpdateWindowClip();
     }
 
@@ -274,35 +274,35 @@ public partial class MainWindow : Window
                     break;
 
                 case AgentRuntimeUpdateType.UserMessage:
-                    AppendAgentMessage("user", update.Message, update.CreatedAtUtc, "-", update.ThreadId);
-                    AgentStatusText.Text = "User message sent";
+                    AppendAgentMessage("用户", update.Message, update.CreatedAtUtc, "-", update.ThreadId);
+                    AgentStatusText.Text = "用户消息已发送";
                     break;
 
                 case AgentRuntimeUpdateType.AssistantDelta:
                     AppendAssistantDelta(update.ThreadId, update.Message);
-                    AgentStatusText.Text = "Streaming response...";
+                    AgentStatusText.Text = "正在接收响应...";
                     break;
 
                 case AgentRuntimeUpdateType.AssistantCompleted:
                     FinalizeAssistantMessage(update.ThreadId, update.Message, update.CreatedAtUtc,
-                        $"usage in:{update.InputTokens} out:{update.OutputTokens} total:{update.TotalTokens} · {update.Provider}/{update.Model}");
-                    AgentUsageText.Text = $"Usage: in {update.InputTokens} · out {update.OutputTokens} · total {update.TotalTokens}";
+                        $"用量 输入:{update.InputTokens} 输出:{update.OutputTokens} 合计:{update.TotalTokens} · {update.Provider}/{update.Model}");
+                    AgentUsageText.Text = $"用量：输入 {update.InputTokens} · 输出 {update.OutputTokens} · 共 {update.TotalTokens}";
                     AgentContextText.Text = update.ContextBudgetTokens > 0
-                        ? $"Context: {update.EstimatedContextTokens}/{update.ContextBudgetTokens} tokens{(update.ContextNeedsCompaction ? " (near limit)" : "")}"
-                        : "Context: -";
-                    AgentStatusText.Text = "Response completed";
+                        ? $"Context: {update.EstimatedContextTokens}/{update.ContextBudgetTokens} 令牌{(update.ContextNeedsCompaction ? " (near limit)" : "")}"
+                        : "上下文：-";
+                    AgentStatusText.Text = "响应完成";
                     RefreshAgentThreads();
                     break;
 
                 case AgentRuntimeUpdateType.ContextMetrics:
                     AgentContextText.Text = update.ContextBudgetTokens > 0
-                        ? $"Context: {update.EstimatedContextTokens}/{update.ContextBudgetTokens} tokens{(update.ContextNeedsCompaction ? " (near limit)" : "")}{(update.CompactionApplied ? " · compacted" : "")}"
-                        : "Context: -";
+                        ? $"Context: {update.EstimatedContextTokens}/{update.ContextBudgetTokens} 令牌{(update.ContextNeedsCompaction ? " (near limit)" : "")}{(update.CompactionApplied ? " · compacted" : "")}"
+                        : "上下文：-";
                     break;
 
                 case AgentRuntimeUpdateType.Error:
-                    AppendAgentMessage("error", update.Message, update.CreatedAtUtc, "error", update.ThreadId);
-                    AgentStatusText.Text = $"Error: {update.Message}";
+                    AppendAgentMessage("错误", update.Message, update.CreatedAtUtc, "错误", update.ThreadId);
+                    AgentStatusText.Text = $"错误：{update.Message}";
                     break;
 
                 case AgentRuntimeUpdateType.Status:
@@ -638,8 +638,8 @@ public partial class MainWindow : Window
     private void MenuAbout_Click(object sender, RoutedEventArgs e)
     {
         MessageBox.Show(
-            "cmux for Windows\nA terminal multiplexer optimized for modern workflows.",
-            "About cmux",
+            "ECloud Code\n面向现代工作流优化的终端复用器。",
+            "关于 cmux",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
@@ -834,7 +834,7 @@ public partial class MainWindow : Window
             {
                 Id = t.Id,
                 Title = t.Title,
-                Meta = $"{t.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {t.MessageCount} msg · tok {t.TotalTokens}",
+                Meta = $"{t.UpdatedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {t.MessageCount} 条消息 ·  {t.TotalTokens}",
             })
             .ToList();
 
@@ -911,20 +911,20 @@ public partial class MainWindow : Window
         var messages = App.AgentConversationStore.GetMessages(threadId, 2000)
             .Select(m =>
             {
-                var role = string.IsNullOrWhiteSpace(m.Role) ? "user" : m.Role.Trim().ToLowerInvariant();
+                var role = string.IsNullOrWhiteSpace(m.Role) ? "用户" : m.Role.Trim().ToLowerInvariant();
                 var roleLabel = role switch
                 {
-                    "assistant" => "assistant",
-                    "system" => "system",
-                    _ => role == "error" ? "error" : "user",
+                    "助手" => "助手",
+                    "系统" => "系统",
+                    _ => role == "错误" ? "错误" : "用户",
                 };
 
                 var meta = m.TotalTokens > 0
-                    ? $"{m.CreatedAtUtc.ToLocalTime():HH:mm:ss} · tok {m.TotalTokens}"
+                    ? $"{m.CreatedAtUtc.ToLocalTime():HH:mm:ss} · {m.TotalTokens} 令牌"
                     : $"{m.CreatedAtUtc.ToLocalTime():HH:mm:ss}";
 
                 if (m.InputTokens > 0 || m.OutputTokens > 0)
-                    meta = $"{meta} · in {m.InputTokens} / out {m.OutputTokens}";
+                    meta = $"{meta} · 输入 {m.InputTokens} / 输出 {m.OutputTokens}";
 
                 if (!string.IsNullOrWhiteSpace(m.Provider) || !string.IsNullOrWhiteSpace(m.Model))
                     meta = $"{meta} · {m.Provider}/{m.Model}".TrimEnd('/');
@@ -1000,10 +1000,10 @@ public partial class MainWindow : Window
             message = new AgentChatMessageView
             {
                 ThreadId = threadId,
-                Role = "assistant",
-                Header = $"assistant · {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                Role = "助手",
+                Header = $"助手 · {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
                 Content = "",
-                Meta = "streaming...",
+                Meta = "流式响应...",
                 CreatedAtUtc = DateTime.UtcNow,
             };
             _streamingAssistantByThread[threadId] = message;
@@ -1035,7 +1035,7 @@ public partial class MainWindow : Window
 
         if (_streamingAssistantByThread.TryGetValue(threadId, out var message))
         {
-            message.Header = $"assistant · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+            message.Header = $"助手 · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
             message.Content = string.IsNullOrWhiteSpace(finalText) ? message.Content : finalText;
             message.Meta = meta;
             message.CreatedAtUtc = createdAtUtc;
@@ -1046,8 +1046,8 @@ public partial class MainWindow : Window
             var newMessage = new AgentChatMessageView
             {
                 ThreadId = threadId,
-                Role = "assistant",
-                Header = $"assistant · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}",
+                Role = "助手",
+                Header = $"助手 · {createdAtUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}",
                 Content = finalText ?? "",
                 Meta = meta,
                 CreatedAtUtc = createdAtUtc,
@@ -1088,32 +1088,32 @@ public partial class MainWindow : Window
     {
         return
         [
-            new() { Id = "new-workspace", Label = "New Workspace", Icon = "\uE710", Shortcut = "Ctrl+N", Category = "Workspace", Execute = () => ViewModel.CreateNewWorkspace() },
-            new() { Id = "new-surface", Label = "New Surface", Icon = "\uE710", Shortcut = "Ctrl+T", Category = "Surface", Execute = () => ViewModel.SelectedWorkspace?.CreateNewSurface() },
-            new() { Id = "close-surface", Label = "Close Surface", Icon = "\uE711", Shortcut = "Ctrl+W", Category = "Surface", Execute = () => { var s = ViewModel.SelectedWorkspace?.SelectedSurface; if (s != null) ViewModel.SelectedWorkspace?.CloseSurface(s); } },
-            new() { Id = "close-workspace", Label = "Close Workspace", Icon = "\uE711", Shortcut = "Ctrl+Shift+W", Category = "Workspace", Execute = () => ViewModel.CloseWorkspace(ViewModel.SelectedWorkspace) },
-            new() { Id = "split-right", Label = "Split Right", Icon = "\uE26B", Shortcut = "Ctrl+D", Category = "Pane", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.SplitRight() },
-            new() { Id = "split-down", Label = "Split Down", Icon = "\uE74B", Shortcut = "Ctrl+Shift+D", Category = "Pane", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.SplitDown() },
-            new() { Id = "toggle-sidebar", Label = "Toggle Sidebar", Icon = "\uE700", Shortcut = "Ctrl+B", Category = "View", Execute = () => ViewModel.ToggleSidebar() },
-            new() { Id = "notifications", Label = "Notifications", Icon = "\uEA8F", Shortcut = "Ctrl+I", Category = "View", Execute = () => ViewModel.ToggleNotificationPanel() },
-            new() { Id = "test-notification", Label = "Test Notification", Icon = "\uE7F4", Category = "View", Execute = ShowTestNotification },
-            new() { Id = "open-logs", Label = "Open Command Logs", Icon = "\uE7BA", Shortcut = "Ctrl+Shift+L", Category = "Logs", Execute = OpenLogsWindow },
-            new() { Id = "open-session-vault", Label = "Open Session Vault", Icon = "\uE8D1", Shortcut = "Ctrl+Shift+V", Category = "Logs", Execute = OpenSessionVault },
-            new() { Id = "open-command-history", Label = "Open Command History", Icon = "\uE81C", Shortcut = "Ctrl+Alt+H", Category = "History", Execute = OpenCommandHistoryPicker },
-            new() { Id = "insert-last-command", Label = "Insert Last Command", Icon = "\uE8A7", Shortcut = "Ctrl+Shift+H", Category = "History", Execute = InsertLastCommandFromHistory },
-            new() { Id = "search", Label = "Search", Icon = "\uE721", Shortcut = "Ctrl+Shift+F", Category = "View", Execute = () => ToggleSearch() },
-            new() { Id = "toggle-agent-chat", Label = "Toggle Agent Chat", Icon = "\uE11B", Shortcut = "Ctrl+Shift+A", Category = "View", Execute = ToggleAgentChat },
-            new() { Id = "zoom-pane", Label = "Zoom Pane", Icon = "\uE740", Shortcut = "Ctrl+Shift+Z", Category = "Pane", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.ToggleZoom() },
-            new() { Id = "focus-next", Label = "Focus Next Pane", Icon = "\uE76C", Shortcut = "Ctrl+Alt+Right", Category = "Pane", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.FocusNextPane() },
-            new() { Id = "focus-prev", Label = "Focus Previous Pane", Icon = "\uE76B", Shortcut = "Ctrl+Alt+Left", Category = "Pane", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.FocusPreviousPane() },
-            new() { Id = "next-surface", Label = "Next Surface", Icon = "\uE76C", Shortcut = "Ctrl+Tab", Category = "Surface", Execute = () => ViewModel.SelectedWorkspace?.NextSurface() },
-            new() { Id = "prev-surface", Label = "Previous Surface", Icon = "\uE76B", Shortcut = "Ctrl+Shift+Tab", Category = "Surface", Execute = () => ViewModel.SelectedWorkspace?.PreviousSurface() },
-            new() { Id = "settings", Label = "Settings", Icon = "\uE713", Shortcut = "Ctrl+,", Category = "App", Execute = () => OpenSettings() },
-            new() { Id = "equalize", Label = "Equalize Panes", Icon = "\uE9D5", Category = "Pane", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.EqualizePanes() },
-            new() { Id = "layout-2col", Label = "Layout: 2 Columns", Icon = "\uE745", Category = "Layout", Execute = () => ApplyLayout(2, 1) },
-            new() { Id = "layout-3col", Label = "Layout: 3 Columns", Icon = "\uE745", Category = "Layout", Execute = () => ApplyLayout(3, 1) },
-            new() { Id = "layout-grid", Label = "Layout: Grid 2x2", Icon = "\uF0E2", Category = "Layout", Execute = () => ApplyLayout(2, 2) },
-            new() { Id = "layout-main-stack", Label = "Layout: Main + Stack", Icon = "\uE745", Category = "Layout", Execute = () => ApplyMainStackLayout() },
+            new() { Id = "new-workspace", Label = "新建工作区", Icon = "\uE710", Shortcut = "Ctrl+N", Category = "工作区", Execute = () => ViewModel.CreateNewWorkspace() },
+            new() { Id = "new-surface", Label = "新建标签页", Icon = "\uE710", Shortcut = "Ctrl+T", Category = "标签页", Execute = () => ViewModel.SelectedWorkspace?.CreateNewSurface() },
+            new() { Id = "close-surface", Label = "关闭标签页", Icon = "\uE711", Shortcut = "Ctrl+W", Category = "标签页", Execute = () => { var s = ViewModel.SelectedWorkspace?.SelectedSurface; if (s != null) ViewModel.SelectedWorkspace?.CloseSurface(s); } },
+            new() { Id = "close-workspace", Label = "关闭工作区", Icon = "\uE711", Shortcut = "Ctrl+Shift+W", Category = "工作区", Execute = () => ViewModel.CloseWorkspace(ViewModel.SelectedWorkspace) },
+            new() { Id = "split-right", Label = "向右分屏", Icon = "\uE26B", Shortcut = "Ctrl+D", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.SplitRight() },
+            new() { Id = "split-down", Label = "向下分屏", Icon = "\uE74B", Shortcut = "Ctrl+Shift+D", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.SplitDown() },
+            new() { Id = "toggle-sidebar", Label = "切换侧边栏", Icon = "\uE700", Shortcut = "Ctrl+B", Category = "视图", Execute = () => ViewModel.ToggleSidebar() },
+            new() { Id = "notifications", Label = "通知", Icon = "\uEA8F", Shortcut = "Ctrl+I", Category = "视图", Execute = () => ViewModel.ToggleNotificationPanel() },
+            new() { Id = "test-notification", Label = "测试通知", Icon = "\uE7F4", Category = "视图", Execute = ShowTestNotification },
+            new() { Id = "open-logs", Label = "打开命令日志", Icon = "\uE7BA", Shortcut = "Ctrl+Shift+L", Category = "日志", Execute = OpenLogsWindow },
+            new() { Id = "open-session-vault", Label = "打开会话存档", Icon = "\uE8D1", Shortcut = "Ctrl+Shift+V", Category = "日志", Execute = OpenSessionVault },
+            new() { Id = "open-command-history", Label = "打开命令历史", Icon = "\uE81C", Shortcut = "Ctrl+Alt+H", Category = "历史", Execute = OpenCommandHistoryPicker },
+            new() { Id = "insert-last-command", Label = "插入上一条命令", Icon = "\uE8A7", Shortcut = "Ctrl+Shift+H", Category = "历史", Execute = InsertLastCommandFromHistory },
+            new() { Id = "search", Label = "搜索", Icon = "\uE721", Shortcut = "Ctrl+Shift+F", Category = "视图", Execute = () => ToggleSearch() },
+            new() { Id = "toggle-agent-chat", Label = "切换 Agent 聊天", Icon = "\uE11B", Shortcut = "Ctrl+Shift+A", Category = "视图", Execute = ToggleAgentChat },
+            new() { Id = "zoom-pane", Label = "缩放面板", Icon = "\uE740", Shortcut = "Ctrl+Shift+Z", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.ToggleZoom() },
+            new() { Id = "focus-next", Label = "聚焦下一面板", Icon = "\uE76C", Shortcut = "Ctrl+Alt+Right", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.FocusNextPane() },
+            new() { Id = "focus-prev", Label = "聚焦上一面板", Icon = "\uE76B", Shortcut = "Ctrl+Alt+Left", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.FocusPreviousPane() },
+            new() { Id = "next-surface", Label = "下一标签页", Icon = "\uE76C", Shortcut = "Ctrl+Tab", Category = "标签页", Execute = () => ViewModel.SelectedWorkspace?.NextSurface() },
+            new() { Id = "prev-surface", Label = "上一标签页", Icon = "\uE76B", Shortcut = "Ctrl+Shift+Tab", Category = "标签页", Execute = () => ViewModel.SelectedWorkspace?.PreviousSurface() },
+            new() { Id = "settings", Label = "Settings", Icon = "\uE713", Shortcut = "Ctrl+,", Category = "应用", Execute = () => OpenSettings() },
+            new() { Id = "equalize", Label = "等宽面板", Icon = "\uE9D5", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.EqualizePanes() },
+            new() { Id = "layout-2col", Label = "布局：两列", Icon = "\uE745", Category = "布局", Execute = () => ApplyLayout(2, 1) },
+            new() { Id = "layout-3col", Label = "布局：三列", Icon = "\uE745", Category = "布局", Execute = () => ApplyLayout(3, 1) },
+            new() { Id = "layout-grid", Label = "布局：2x2 网格", Icon = "\uF0E2", Category = "布局", Execute = () => ApplyLayout(2, 2) },
+            new() { Id = "layout-main-stack", Label = "布局：主+副", Icon = "\uE745", Category = "布局", Execute = () => ApplyMainStackLayout() },
         ];
     }
 
@@ -1203,21 +1203,21 @@ public partial class MainWindow : Window
         var surface = ViewModel.SelectedWorkspace?.SelectedSurface;
         if (surface == null)
         {
-            PaneCountText.Text = "0 panes";
+            PaneCountText.Text = "0 个面板";
             ToolbarZoomIcon.Text = "\uE740";
-            ToolbarZoomButton.ToolTip = "Zoom Pane (Ctrl+Shift+Z)";
+            ToolbarZoomButton.ToolTip = "缩放面板 (Ctrl+Shift+Z)";
             return;
         }
 
         var paneCount = surface.RootNode.GetLeaves().Count();
         PaneCountText.Text = surface.IsZoomed
-            ? $"{paneCount} panes (1 zoomed)"
-            : paneCount == 1 ? "1 pane" : $"{paneCount} panes";
+            ? $"{paneCount} 个面板（1 个已缩放）"
+            : paneCount == 1 ? "1 个面板" : $"{paneCount} 个面板";
 
         ToolbarZoomIcon.Text = surface.IsZoomed ? "\uE73F" : "\uE740";
         ToolbarZoomButton.ToolTip = surface.IsZoomed
-            ? "Unzoom Pane (Ctrl+Shift+Z)"
-            : "Zoom Pane (Ctrl+Shift+Z)";
+            ? "取消缩放面板 (Ctrl+Shift+Z)"
+            : "缩放面板 (Ctrl+Shift+Z)";
     }
 
     // --- Search handling ---
@@ -1353,9 +1353,9 @@ public partial class MainWindow : Window
             workspaceId,
             surfaceId,
             paneId,
-            "cmux test",
-            "Notification check",
-            "If you see this in panel/toast, notifications are working.",
+            "cmux 测试",
+            "通知测试",
+            "如果你在面板或系统通知中看到这条消息，说明通知功能正常。",
             Cmux.Core.Models.NotificationSource.Cli);
     }
 
@@ -1380,7 +1380,7 @@ public partial class MainWindow : Window
         var history = surface.GetCommandHistory(paneId);
         if (history.Count == 0)
         {
-            MessageBox.Show("No command history found yet for this pane.", "History", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("此面板还没有命令历史记录。", "History", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -1395,7 +1395,7 @@ public partial class MainWindow : Window
             })
         {
             Owner = this,
-            Title = $"Command History · Pane {paneLabel}",
+            Title = $"命令历史 · 面板 {paneLabel}",
         };
 
         window.ShowDialog();
@@ -1410,7 +1410,7 @@ public partial class MainWindow : Window
         var history = surface.GetCommandHistory(paneId);
         if (history.Count == 0)
         {
-            MessageBox.Show("No command history found yet for this pane.", "History", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("此面板还没有命令历史记录。", "History", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -1445,7 +1445,7 @@ public partial class MainWindow : Window
         _selectedAgentThreadId = thread.Id;
         RefreshAgentThreads();
         SelectAgentThreadInList(thread.Id);
-        AgentStatusText.Text = "New thread created";
+        AgentStatusText.Text = "已创建新会话";
     }
 
     private void AgentThreadsList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -1505,7 +1505,7 @@ public partial class MainWindow : Window
         var context = GetCurrentPaneContext();
         if (context == null)
         {
-            AgentStatusText.Text = "No active pane selected";
+            AgentStatusText.Text = "未选中活动面板";
             return;
         }
 
@@ -1543,12 +1543,12 @@ public partial class MainWindow : Window
 
         if (!accepted)
         {
-            AgentStatusText.Text = "Agent did not accept the prompt";
+            AgentStatusText.Text = "Agent 未接受该提示";
             return;
         }
 
         AgentPromptBox.Text = "";
-        AgentStatusText.Text = "Prompt sent";
+        AgentStatusText.Text = "提示已发送";
         RefreshAgentThreads();
         if (!string.IsNullOrWhiteSpace(threadId))
             SelectAgentThreadInList(threadId);

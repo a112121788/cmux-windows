@@ -219,6 +219,55 @@ public class TerminalBufferTests
         buffer.CursorRow.Should().Be(5);
         buffer.CursorCol.Should().Be(10);
     }
+
+    [Fact]
+    public void WriteChar_Ascii_AdvancesOneColumn()
+    {
+        var buffer = new TerminalBuffer(20, 3);
+        buffer.WriteChar('A');
+        buffer.CursorCol.Should().Be(1);
+        buffer.CellAt(0, 0).Width.Should().Be(1);
+    }
+
+    [Fact]
+    public void WriteChar_Cjk_AdvancesTwoColumnsAndPlacesPlaceholder()
+    {
+        var buffer = new TerminalBuffer(20, 3);
+        buffer.WriteChar('中');
+
+        buffer.CursorCol.Should().Be(2);
+        buffer.CellAt(0, 0).Character.Should().Be('中');
+        buffer.CellAt(0, 0).Width.Should().Be(2);
+        buffer.CellAt(0, 1).Character.Should().Be('\0');
+        buffer.CellAt(0, 1).Width.Should().Be(0);
+    }
+
+    [Fact]
+    public void WriteString_Cjk_AdvancesColumnPerGlyph()
+    {
+        var buffer = new TerminalBuffer(20, 3);
+        buffer.WriteString("中文");
+
+        buffer.CursorCol.Should().Be(4);
+        buffer.CellAt(0, 0).Character.Should().Be('中');
+        buffer.CellAt(0, 0).Width.Should().Be(2);
+        buffer.CellAt(0, 1).Width.Should().Be(0);
+        buffer.CellAt(0, 2).Character.Should().Be('文');
+        buffer.CellAt(0, 2).Width.Should().Be(2);
+        buffer.CellAt(0, 3).Width.Should().Be(0);
+    }
+
+    [Fact]
+    public void WriteChar_Cjk_AtRightEdge_WrapsToNextLine()
+    {
+        var buffer = new TerminalBuffer(4, 3);
+        buffer.WriteString("abc");
+        buffer.CursorCol.Should().Be(3);
+
+        buffer.WriteChar('中');
+        buffer.CursorRow.Should().Be(1);
+        buffer.CursorCol.Should().Be(2);
+    }
 }
 
 public class OscHandlerTests

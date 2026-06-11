@@ -6,58 +6,58 @@
     <Grid>
         <Grid.ContextMenu>
             <ContextMenu>
-                <MenuItem Header="Rename" InputGestureText="F2" Click="Rename_Click">
+                <MenuItem Header="重命名" InputGestureText="F2" Click="Rename_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE8AC;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Duplicate" Click="Duplicate_Click">
+                <MenuItem Header="复制" Click="Duplicate_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Set Workspace Icon" Click="SetIcon_Click">
+                <MenuItem Header="设置工作区图标" Click="SetIcon_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator />
-                <MenuItem Header="Accent: Indigo" Click="SetColor_Click" Tag="#FF818CF8">
+                <MenuItem Header="主题色：靛蓝" Click="SetColor_Click" Tag="#FF818CF8">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FF818CF8" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Green" Click="SetColor_Click" Tag="#FF10B981">
+                <MenuItem Header="主题色：绿色" Click="SetColor_Click" Tag="#FF10B981">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FF10B981" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Amber" Click="SetColor_Click" Tag="#FFF59E0B">
+                <MenuItem Header="主题色：琥珀" Click="SetColor_Click" Tag="#FFF59E0B">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FFF59E0B" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Red" Click="SetColor_Click" Tag="#FFEF4444">
+                <MenuItem Header="主题色：红色" Click="SetColor_Click" Tag="#FFEF4444">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FFEF4444" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Cyan" Click="SetColor_Click" Tag="#FF06B6D4">
+                <MenuItem Header="主题色：青色" Click="SetColor_Click" Tag="#FF06B6D4">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FF06B6D4" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Purple" Click="SetColor_Click" Tag="#FFA855F7">
+                <MenuItem Header="主题色：紫色" Click="SetColor_Click" Tag="#FFA855F7">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FFA855F7" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Slate" Click="SetColor_Click" Tag="#FF64748B">
+                <MenuItem Header="主题色：石板灰" Click="SetColor_Click" Tag="#FF64748B">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FF64748B" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Accent: Pink" Click="SetColor_Click" Tag="#FFEC4899">
+                <MenuItem Header="主题色：粉色" Click="SetColor_Click" Tag="#FFEC4899">
                     <MenuItem.Icon>
                         <TextBlock Text="●" Foreground="#FFEC4899" />
                     </MenuItem.Icon>
@@ -68,24 +68,24 @@
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator />
-                <MenuItem Header="New Surface" InputGestureText="Ctrl+T" Click="NewSurface_Click">
+                <MenuItem Header="新建标签页" InputGestureText="Ctrl+T" Click="NewSurface_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator />
-                <MenuItem Header="Move Up" Click="MoveUp_Click">
+                <MenuItem Header="上移" Click="MoveUp_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE74A;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="Move Down" Click="MoveDown_Click">
+                <MenuItem Header="下移" Click="MoveDown_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE74B;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator />
-                <MenuItem Header="Close Workspace" InputGestureText="Ctrl+Shift+W" Click="Close_Click"
+                <MenuItem Header="关闭工作区" InputGestureText="Ctrl+Shift+W" Click="Close_Click"
                           Foreground="#FFEF4444">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12"

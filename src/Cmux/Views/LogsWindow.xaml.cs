@@ -21,11 +21,11 @@ public partial class LogsWindow : Window
         InitializeComponent();
         WindowAppearance.Apply(this);
 
-        WorkspaceFilterCombo.DisplayMemberPath = "Label";
+        WorkspaceFilterCombo.DisplayMemberPath = "名称";
         WorkspaceFilterCombo.SelectedValuePath = "Id";
-        SurfaceFilterCombo.DisplayMemberPath = "Label";
+        SurfaceFilterCombo.DisplayMemberPath = "名称";
         SurfaceFilterCombo.SelectedValuePath = "Id";
-        PaneFilterCombo.DisplayMemberPath = "Label";
+        PaneFilterCombo.DisplayMemberPath = "名称";
         PaneFilterCombo.SelectedValuePath = "Id";
 
         LoadDates();
@@ -189,17 +189,17 @@ public partial class LogsWindow : Window
 
         _suppressFilterEvents = true;
 
-        WorkspaceFilterCombo.ItemsSource = (new[] { new FilterOption { Id = string.Empty, Label = "All workspaces" } })
+        WorkspaceFilterCombo.ItemsSource = (new[] { new FilterOption { Id = string.Empty, Label = "所有工作区" } })
             .Concat(workspaceOptions)
             .ToList();
         WorkspaceFilterCombo.SelectedValue = workspaceOptions.Any(x => x.Id == previousWorkspace) ? previousWorkspace : string.Empty;
 
-        SurfaceFilterCombo.ItemsSource = (new[] { new FilterOption { Id = string.Empty, Label = "All surfaces" } })
+        SurfaceFilterCombo.ItemsSource = (new[] { new FilterOption { Id = string.Empty, Label = "所有标签页" } })
             .Concat(surfaceOptions)
             .ToList();
         SurfaceFilterCombo.SelectedValue = surfaceOptions.Any(x => x.Id == previousSurface) ? previousSurface : string.Empty;
 
-        PaneFilterCombo.ItemsSource = (new[] { new FilterOption { Id = string.Empty, Label = "All panes" } })
+        PaneFilterCombo.ItemsSource = (new[] { new FilterOption { Id = string.Empty, Label = "所有面板" } })
             .Concat(paneOptions)
             .ToList();
         PaneFilterCombo.SelectedValue = paneOptions.Any(x => x.Id == previousPane) ? previousPane : string.Empty;
@@ -258,8 +258,8 @@ public partial class LogsWindow : Window
 
         EntriesList.ItemsSource = filtered;
         SummaryText.Text = filtered.Count == _entriesForDate.Count
-            ? (filtered.Count == 1 ? "1 entry" : $"{filtered.Count} entries")
-            : $"{filtered.Count} / {_entriesForDate.Count} entries";
+            ? (filtered.Count == 1 ? "1 条" : $"{filtered.Count} 条")
+            : $"{filtered.Count} / {_entriesForDate.Count} 条";
 
         if (filtered.Count > 0)
             EntriesList.SelectedIndex = 0;
@@ -276,7 +276,7 @@ public partial class LogsWindow : Window
         var surface = ownerVm?.SelectedWorkspace?.SelectedSurface;
         if (surface?.FocusedPaneId is not string paneId)
         {
-            MessageBox.Show("No focused pane available.", "Logs", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("没有可用的当前面板。", "Logs", MessageBoxButton.OK, MessageBoxImage.Information);
             return false;
         }
 
@@ -349,7 +349,7 @@ public partial class LogsWindow : Window
         }
         catch
         {
-            MessageBox.Show($"Logs folder: {dir}", "Logs", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"日志目录：{dir}", "Logs", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
@@ -366,7 +366,7 @@ public partial class LogsWindow : Window
         }
         catch
         {
-            MessageBox.Show($"Terminal captures folder: {dir}", "Logs", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"终端记录目录：{dir}", "Logs", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 

@@ -28,7 +28,7 @@ public partial class App : Application
         DispatcherUnhandledException += (s, args) =>
         {
             System.Diagnostics.Debug.WriteLine($"[CRASH] DispatcherUnhandledException: {args.Exception}");
-            System.Windows.MessageBox.Show($"Unexpected error: {args.Exception.Message}\n\n{args.Exception.StackTrace}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"意外错误：{args.Exception.Message}\n\n{args.Exception.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
 
@@ -36,7 +36,7 @@ public partial class App : Application
         {
             var ex = args.ExceptionObject as Exception;
             System.Diagnostics.Debug.WriteLine($"[CRASH] UnhandledException: {ex}");
-            System.Windows.MessageBox.Show($"Fatal error: {ex?.Message}\n\n{ex?.StackTrace}", "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"严重错误：{ex?.Message}\n\n{ex?.StackTrace}", "严重错误", MessageBoxButton.OK, MessageBoxImage.Error);
         };
 
         // Start the named pipe server for CLI communication
@@ -72,7 +72,7 @@ public partial class App : Application
             var mainWindow = Current.MainWindow;
             if (mainWindow != null && !mainWindow.IsActive)
             {
-                var workspaceName = "Terminal"; // Will be enriched by MainViewModel
+                var workspaceName = "终端"; // Will be enriched by MainViewModel
                 Services.ToastNotificationHelper.ShowToast(notification, workspaceName);
             }
         };
