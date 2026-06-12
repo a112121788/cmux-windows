@@ -223,8 +223,8 @@ var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0";
 
 ```text
 Artifact                 Exists  SizeMB  SHA256
-ecode-win-x64/ecodew.exe   yes     5.4     ...
-ecode-win-x64-sc/ecodew.exe yes    82.1    ...
+ecode-win-x64/ecode-app.exe   yes     5.4     ...
+ecode-win-x64-sc/ecode-app.exe yes    82.1    ...
 ecode-cli/ecode.exe        yes     72.8    ...
 ```
 
@@ -813,7 +813,7 @@ M6 先支持 Claude / Codex / OpenCode 三个。
 
 ### M6.5 验收
 
-- 新机器安装后 `ecodew.exe` 可启动，`ecode.exe` 在 PATH 中可用。
+- 新机器安装后 `ecode-app.exe` 可启动，`ecode.exe` 在 PATH 中可用。
 - `ecode hooks setup codex` 能检测并写入 hook，失败时打印可操作错误。
 - 卸载后 PATH 与 hook 可清理。
 - 更新过程不丢 `%LOCALAPPDATA%/ecode` 数据。

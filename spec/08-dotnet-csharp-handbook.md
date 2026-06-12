@@ -55,7 +55,7 @@
 ```text
 ECode.sln
 ├── src/
-│   ├── ECode/                # WinExe: ecodew.exe（WPF 主程序）
+│   ├── ECode/                # WinExe: ecode-app.exe（WPF 主程序）
 │   ├── ECode.Cli/            # Exe:   ecode.exe
 │   ├── ECode.Core/           # Library: 跨进程复用
 │   └── ECode.Daemon/         # WinExe: ecode-daemon.exe
@@ -70,7 +70,7 @@ ECode.sln
 |---|---|---|
 | `TargetFramework` | 目标 TFM | `net10.0-windows`（库、CLI、Daemon），`net10.0-windows10.0.17763.0`（WPF） |
 | `OutputType` | 产物类型 | `Library` / `Exe`（控制台） / `WinExe`（无控制台窗口） |
-| `AssemblyName` | 程序集名 | `ecodew` / `ecode` / `ECode.Core` |
+| `AssemblyName` | 程序集名 | `ecode-app` / `ecode` / `ECode.Core` |
 | `RootNamespace` | 默认命名空间 | `ECode.Core` |
 | `Nullable` | 启用可空引用类型 | `enable` |
 | `LangVersion` | C# 语言版本 | `14`（由 `Directory.Build.props` 统一） |
@@ -765,7 +765,7 @@ public class DaemonClientTests
    ```powershell
    dotnet run --project src/ECode.Daemon/ECode.Daemon.csproj
    # 另开窗口
-   .\src\ECode\bin\Debug\net10.0-windows10.0.17763.0\ecodew.exe
+   .\src\ECode\bin\Debug\net10.0-windows10.0.17763.0\ecode-app.exe
    ```
 
 6. **CLI ping 守护**：

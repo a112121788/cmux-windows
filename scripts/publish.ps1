@@ -111,7 +111,7 @@ if ($Flavor -in @('All', 'Framework')) {
         '--self-contained', 'false',
         '-o', $out
     )
-    $ran += "Framework      -> $out\ecodew.exe"
+    $ran += "Framework      -> $out\ecode-app.exe"
 }
 
 if ($Flavor -in @('All', 'SelfContained')) {
@@ -122,7 +122,7 @@ if ($Flavor -in @('All', 'SelfContained')) {
         '--self-contained', 'true',
         '-o', $out
     )
-    $ran += "SelfContained  -> $out\ecodew.exe"
+    $ran += "SelfContained  -> $out\ecode-app.exe"
 }
 
 if ($Flavor -in @('All', 'Cli')) {

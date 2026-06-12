@@ -4,7 +4,7 @@
 
 一款运行在 Windows 上的深色、键盘优先的终端复用器，灵感来自 tmux/cmux 的工作流，但底层使用 WPF + ConPTY 原生构建。
 
-> 旧称 `cmux-windows`。本仓库已迁移到 `ECode` 品牌；CLI 主二进制为 `ecodew.exe`，CLI 工具为 `ecode.exe`，守护进程为 `ecode-daemon.exe`。详细迁移与兼容说明见 `CHANGELOG.md` 与 `spec/06-roadmap.md`。
+> 旧称 `cmux-windows`。本仓库已迁移到 `ECode` 品牌；CLI 主二进制为 `ecode-app.exe`，CLI 工具为 `ecode.exe`，守护进程为 `ecode-daemon.exe`。详细迁移与兼容说明见 `CHANGELOG.md` 与 `spec/06-roadmap.md`。
 
 ---
 
@@ -87,7 +87,7 @@ dotnet publish src/ECode/ECode.csproj -c Release -r win-x64 --self-contained fal
 ```
 
 产物：
-- `publish/ecode-win-x64/ecodew.exe`
+- `publish/ecode-win-x64/ecode-app.exe`
 
 适用场景：目标机器上已经装好 .NET 运行时。
 
@@ -98,7 +98,7 @@ dotnet publish src/ECode/ECode.csproj -c Release -r win-x64 --self-contained tru
 ```
 
 产物：
-- `publish/ecode-win-x64-sc/ecodew.exe`
+- `publish/ecode-win-x64-sc/ecode-app.exe`
 
 ### 3) 单文件自包含 `.exe`（便携产物）
 
@@ -107,7 +107,7 @@ dotnet publish src/ECode/ECode.csproj -c Release -r win-x64 --self-contained tru
 ```
 
 产物：
-- `publish/ecode-win-x64-single/ecodew.exe`
+- `publish/ecode-win-x64-single/ecode-app.exe`
 
 > 注意：依赖 WebView2 的功能可能需要目标系统已安装 WebView2 运行时，具体取决于系统状态。
 
@@ -123,7 +123,7 @@ dotnet publish src/ECode.Cli/ECode.Cli.csproj -c Release -r win-x64 --self-conta
 
 ## 前 5 分钟上手
 
-1. 启动 `ecodew.exe`
+1. 启动 `ecode-app.exe`
 2. 用 `Ctrl+N` 为你的仓库创建一个工作区
 3. 用 `Ctrl+T` 新增更多标签页
 4. 用 `Ctrl+D` / `Ctrl+Shift+D` 分屏

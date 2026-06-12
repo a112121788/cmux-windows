@@ -14,10 +14,10 @@
 | 守护进程目录 | `src/Cmux.Daemon/` | `src/ECode.Daemon/` |
 | 测试目录 | `tests/Cmux.Tests/` | `tests/ECode.Tests/` |
 | 烟雾测试目录 | `tests/Cmux.Smoke/` | `tests/ECode.Smoke/` |
-| 主程序产物 | `cmuxw.exe` | `ecodew.exe` |
+| 主程序产物 | `cmuxw.exe` | `ecode-app.exe` |
 | CLI 产物 | `cmux.exe` | `ecode.exe` |
 | 守护进程产物 | `cmux-daemon.exe` | `ecode-daemon.exe` |
-| 程序集名 | `cmuxw` / `cmux` / `cmux-daemon` | `ecodew` / `ecode` / `ecode-daemon` |
+| 程序集名 | `cmuxw` / `cmux` / `cmux-daemon` | `ecode-app` / `ecode` / `ecode-daemon` |
 | 根命名空间 | `Cmux.*` | `ECode.*` |
 | `cmux.json` 配置文件名 | `.cmux/cmux.json`、`cmux.json` | `.ecode/ecode.json`、`ecode.json`（保留 `cmux.json` 作为旧别名兼容期） |
 | 命名管道（主应用） | `\\.\pipe\cmux`、`\\.\pipe\cmux-{tag}` | `\\.\pipe\ecode`、`\\.\pipe\ecode-{tag}` |
@@ -45,13 +45,13 @@
 2. `git mv`：`src/Cmux` → `src/ECode`、`src/Cmux.Core` → `src/ECode.Core`、`src/Cmux.Cli` → `src/ECode.Cli`、`src/Cmux.Daemon` → `src/ECode.Daemon`、`tests/Cmux.Tests` → `tests/ECode.Tests`、`tests/Cmux.Smoke` → `tests/ECode.Smoke`、`Cmux.sln` → `ECode.sln`。
 3. 改每个 `*.csproj`：
    - `RootNamespace`：C# 默认从目录名推；新目录已是 `ECode.*`，原 `using Cmux.*;` 全部改为 `using ECode.*;`。
-   - `AssemblyName`：`cmuxw` → `ecodew`、`cmux` → `ecode`、`cmux-daemon` → `ecode-daemon`。
+   - `AssemblyName`：`cmuxw` → `ecode-app`、`cmux` → `ecode`、`cmux-daemon` → `ecode-daemon`。
    - `ProjectReference` 路径全部更新。
 4. 改 `ECode.sln` 的 `Project` 行 + `GlobalSection(ProjectConfigurationPlatforms)` 的 GUID 段全部更新项目路径。
 5. 全仓 `namespace Cmux` → `namespace ECode`、所有 `using Cmux.*;` 改为 `using ECode.*;`。
 6. 所有 `x:Class="Cmux.Views.*"`、`clr-namespace:Cmux.*` 改为 `ECode.*`。
 7. 资源键 `CmuxButton` → `ECodeButton`、`CmuxTextBox` → `ECodeTextBox`；`Style="{StaticResource CmuxButton}"` 同步更新。
-8. 修改 `scripts/publish.ps1`：路径 `cmux-$Rid` / `cmux-$Rid-sc` / `cmux-cli` → `ecode-...`；`cmuxw.exe` / `cmux.exe` → `ecodew.exe` / `ecode.exe`；清理路径 `src/Cmux/obj|bin` → `src/ECode/obj|bin`。
+8. 修改 `scripts/publish.ps1`：路径 `cmux-$Rid` / `cmux-$Rid-sc` / `cmux-cli` → `ecode-...`；`cmuxw.exe` / `cmux.exe` → `ecode-app.exe` / `ecode.exe`；清理路径 `src/Cmux/obj|bin` → `src/ECode/obj|bin`。
 9. 修 `scripts/append-wide-tests.ps1` 里的硬编码 `C:\Users\...\cmux-windows\tests\Cmux.Tests\CoreTests.cs` → `tests/ECode.Tests/CoreTests.cs`（相对路径或脚本所在目录解析）。
 
 ### PR2：管道 / 互斥体 / 数据目录
@@ -72,7 +72,7 @@
 
 ### PR4：文档与模板
 
-1. 根 `README.md` / `README.en.md`：项目名、截图说明、徽章名称、安装命令中的 `cmuxw.exe` / `cmux.exe` 改为 `ecodew.exe` / `ecode.exe`；`install PATH` 段落中“放入 PATH”的目录名同步。
+1. 根 `README.md` / `README.en.md`：项目名、截图说明、徽章名称、安装命令中的 `cmuxw.exe` / `cmux.exe` 改为 `ecode-app.exe` / `ecode.exe`；`install PATH` 段落中“放入 PATH”的目录名同步。
 2. `spec/01-architecture.md` ~ `spec/07-implementation-backlog.md`：所有本仓库自称处由 `cmux-windows` 改为 `ECode`；`STATUS.version` 起始 `0.1.0`；管道/互斥体/数据目录表格同步；`%LOCALAPPDATA%\cmux` → `%LOCALAPPDATA%\ecode`。
 3. `.github/ISSUE_TEMPLATE/*.yml`：
    - `bug_report.yml`：版本字段提示从 `1.0.6` 改为 `0.1.0`；日志路径 `%LOCALAPPDATA%/cmux/daemon-debug.log` → `%LOCALAPPDATA%/ecode/daemon-debug.log`。
@@ -93,7 +93,7 @@
 - `dotnet build ECode.sln -c Debug` 零警告通过（`TreatWarningsAsErrors=true`）。
 - `dotnet test tests/ECode.Tests/ECode.Tests.csproj` 全绿。
 - `dotnet run --project tests/ECode.Smoke/ECode.Smoke.csproj` 启动 ConPTY 成功，日志 `[ecode-daemon]`。
-- `scripts/publish.ps1 -Flavor All` 在 PowerShell 下输出 `publish/ecode-win-x64/ecodew.exe` / `publish/ecode-cli/ecode.exe`。
+- `scripts/publish.ps1 -Flavor All` 在 PowerShell 下输出 `publish/ecode-win-x64/ecode-app.exe` / `publish/ecode-cli/ecode.exe`。
 - 命名管道：PowerShell `[System.IO.Directory]::GetFiles("\\.\pipe\")` 含 `ecode`、`ecode-daemon`。
 - 互斥体：单实例启动后，`Get-Item Global:\ECodeDaemon` 存在。
 - 数据目录：首启 `%LOCALAPPDATA%\ecode\` 自动创建；旧 `%LOCALAPPDATA%\cmux\` 仍可读。

@@ -2,7 +2,7 @@
 
 A dark, keyboard-first terminal multiplexer for Windows, inspired by tmux/cmux workflows but built natively with WPF + ConPTY.
 
-> Formerly `cmux-windows`. This repository has been migrated to the `ECode` brand; main binary is `ecodew.exe`, CLI tool is `ecode.exe`, daemon is `ecode-daemon.exe`. See `CHANGELOG.md` and `spec/06-roadmap.md` for migration details.
+> Formerly `cmux-windows`. This repository has been migrated to the `ECode` brand; main binary is `ecode-app.exe`, CLI tool is `ecode.exe`, daemon is `ecode-daemon.exe`. See `CHANGELOG.md` and `spec/06-roadmap.md` for migration details.
 
 ---
 
@@ -85,7 +85,7 @@ dotnet publish src/ECode/ECode.csproj -c Release -r win-x64 --self-contained fal
 ```
 
 Output:
-- `publish/ecode-win-x64/ecodew.exe`
+- `publish/ecode-win-x64/ecode-app.exe`
 
 Use this when target machines already have .NET runtime installed.
 
@@ -96,7 +96,7 @@ dotnet publish src/ECode/ECode.csproj -c Release -r win-x64 --self-contained tru
 ```
 
 Output:
-- `publish/ecode-win-x64-sc/ecodew.exe`
+- `publish/ecode-win-x64-sc/ecode-app.exe`
 
 ### 3) Single-file self-contained `.exe` (portable artifact)
 
@@ -105,7 +105,7 @@ dotnet publish src/ECode/ECode.csproj -c Release -r win-x64 --self-contained tru
 ```
 
 Output:
-- `publish/ecode-win-x64-single/ecodew.exe`
+- `publish/ecode-win-x64-single/ecode-app.exe`
 
 > Note: WebView2-backed features may require WebView2 Runtime depending on target system state.
 
@@ -121,7 +121,7 @@ Add `publish/ecode-cli` to `PATH` to use `ecode` globally.
 
 ## First 5 minutes (how to use)
 
-1. Launch `ecodew.exe`
+1. Launch `ecode-app.exe`
 2. `Ctrl+N` to create a workspace for your repo
 3. `Ctrl+T` to create additional surfaces (tabs)
 4. Split panes with `Ctrl+D` / `Ctrl+Shift+D`

@@ -11,7 +11,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 ### Breaking changes
 
 - 项目品牌与代码标识统一为 **ECode**（旧称 `cmux-windows`），覆盖以下外部契约：
-  - 主程序：`cmuxw.exe` → `ecodew.exe`
+  - 主程序：`cmuxw.exe` → `ecode-app.exe`
   - CLI：`cmux.exe` → `ecode.exe`
   - 守护进程：`cmux-daemon.exe` → `ecode-daemon.exe`
   - 解决方案：`Cmux.sln` → `ECode.sln`
@@ -38,7 +38,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 
 ### Migration
 
-1. 升级到 `0.1.0` 之前，请停止旧版 `cmuxw.exe` / `ecodew.exe`。
+1. 升级到 `0.1.0` 之前，请停止旧版 `cmuxw.exe` / `ecode-app.exe`。
 2. 卸载旧安装器；删除 `C:\Program Files\ECode` 旧安装目录（若已存在）。
 3. 安装新版 `0.1.x`（`ecode-setup.exe` 或 `ecode-cli`）后，旧 `%LOCALAPPDATA%\cmux\` 数据会被自动迁移到 `%LOCALAPPDATA%\ecode\`。
 4. 自动化脚本中的 `cmux status` 等命令在 CLI 顶层继续可运行，但建议改写为 `ecode ...`。

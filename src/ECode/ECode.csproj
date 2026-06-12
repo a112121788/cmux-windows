@@ -5,7 +5,7 @@
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>ECode</RootNamespace>
-    <AssemblyName>ecodew</AssemblyName>
+    <AssemblyName>ecode-app</AssemblyName>
     <Version>0.1.0</Version>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
   </PropertyGroup>
