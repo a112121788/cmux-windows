@@ -1,9 +1,7 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using ECode.ViewModels;
-using ECode.Views;
 
 namespace ECode.Controls;
 
@@ -28,62 +26,6 @@ public partial class WorkspaceSidebarItem : UserControl
     }
 
     private void NewSurface_Click(object sender, RoutedEventArgs e) => Vm?.CreateNewSurface();
-
-    private void SetIcon_Click(object sender, RoutedEventArgs e)
-    {
-        if (Vm == null) return;
-
-        var prompt = new TextPromptWindow(
-            title: "项目图标",
-            message: "输入单个图标（emoji/符号）或字形代码，例如 E8A5、U+E8A5、0xE8A5。",
-            defaultValue: Vm.IconGlyph)
-        {
-            Owner = Window.GetWindow(this),
-        };
-
-        if (prompt.ShowDialog() != true)
-            return;
-
-        var input = prompt.ResponseText;
-        if (string.IsNullOrWhiteSpace(input))
-            return;
-
-        var value = input.Trim();
-
-        if (value.StartsWith("<svg", StringComparison.OrdinalIgnoreCase))
-        {
-            MessageBox.Show("暂不支持 SVG 项目图标。请使用 emoji/符号或 MDL2 十六进制代码。",
-                "项目图标", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (TryParseHexGlyph(value, out var glyph))
-            Vm.IconGlyph = glyph;
-        else
-            Vm.IconGlyph = value;
-    }
-
-    private void SetColor_Click(object sender, RoutedEventArgs e)
-    {
-        if (Vm == null || sender is not MenuItem item || item.Tag is not string color)
-            return;
-
-        Vm.AccentColor = color;
-    }
-
-    private void SetCustomColor_Click(object sender, RoutedEventArgs e)
-    {
-        if (Vm == null)
-            return;
-
-        var picker = new ColorPickerWindow(Vm.AccentColor)
-        {
-            Owner = Window.GetWindow(this),
-        };
-
-        if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.SelectedHex))
-            Vm.AccentColor = picker.SelectedHex;
-    }
 
     private void MoveUp_Click(object sender, RoutedEventArgs e)
     {
@@ -144,26 +86,6 @@ public partial class WorkspaceSidebarItem : UserControl
             FinishRename();
             e.Handled = true;
         }
-    }
-
-    private static bool TryParseHexGlyph(string input, out string glyph)
-    {
-        glyph = string.Empty;
-
-        var normalized = input.Trim();
-        if (normalized.StartsWith("U+", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized[2..];
-        else if (normalized.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized[2..];
-
-        if (!uint.TryParse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var codePoint))
-            return false;
-
-        if (codePoint > 0x10FFFF)
-            return false;
-
-        glyph = char.ConvertFromUtf32((int)codePoint);
-        return true;
     }
 
     private MainViewModel? FindMainViewModel()

@@ -16,58 +16,6 @@
                         <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="设置项目图标" Click="SetIcon_Click">
-                    <MenuItem.Icon>
-                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator />
-                <MenuItem Header="主题色：靛蓝" Click="SetColor_Click" Tag="#FF818CF8">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FF818CF8" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：绿色" Click="SetColor_Click" Tag="#FF10B981">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FF10B981" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：琥珀" Click="SetColor_Click" Tag="#FFF59E0B">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FFF59E0B" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：红色" Click="SetColor_Click" Tag="#FFEF4444">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FFEF4444" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：青色" Click="SetColor_Click" Tag="#FF06B6D4">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FF06B6D4" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：紫色" Click="SetColor_Click" Tag="#FFA855F7">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FFA855F7" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：石板灰" Click="SetColor_Click" Tag="#FF64748B">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FF64748B" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：粉色" Click="SetColor_Click" Tag="#FFEC4899">
-                    <MenuItem.Icon>
-                        <TextBlock Text="●" Foreground="#FFEC4899" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="主题色：自定义..." Click="SetCustomColor_Click">
-                    <MenuItem.Icon>
-                        <TextBlock Text="＋" Foreground="{StaticResource ForegroundBrush}" FontSize="12" FontWeight="Bold" />
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator />
                 <MenuItem Header="新建标签页" InputGestureText="Ctrl+T" Click="NewSurface_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
