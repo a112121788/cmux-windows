@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows;
-using ECode.Core.Config;
 using ECode.Core.IPC;
 using ECode.Core.Services;
 using ECode.Services;
@@ -23,10 +22,6 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-
-        // 把旧 %LOCALAPPDATA%/cmux 数据迁移到 %LOCALAPPDATA%/ecode（一次性）。
-        try { CompatibilityOptions.EnsureMigrated(); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Compat] EnsureMigrated failed: {ex}"); }
 
         // 添加全局异常处理器以便诊断崩溃问题
         DispatcherUnhandledException += (s, args) =>

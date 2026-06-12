@@ -55,8 +55,7 @@ public class ECodeSettings
     public AgentSettings Agent { get; set; } = new();
 
     // ── 兼容（cmux-windows 迁移期） ───────────────────────────
-    // 这些选项用于从旧品牌平滑过渡；所有项默认为 true。
-    // 1 个小版本后可设为 false；2 个小版本后可移除相关读取代码。
+    // 这些选项仅保留旧管道/配置/CLI 名称兼容；运行时数据目录不再回退旧路径。
 
     /// <summary>
     /// 主应用管道额外监听旧名 `\\.\pipe\cmux`（以及带 tag 的 `\\.\pipe\cmux-{tag}`），
@@ -69,19 +68,6 @@ public class ECodeSettings
     /// 的连接。生产环境建议在迁移完成后关闭。
     /// </summary>
     public bool CompatListenLegacyDaemonPipe { get; set; } = true;
-
-    /// <summary>
-    /// 启动时若 `%LOCALAPPDATA%\ecode\` 不存在但 `%LOCALAPPDATA%\cmux\` 存在，
-    /// 把 `session.json` / `snippets.json` / `agent/` / `logs/` 复制到新目录，
-    /// 并在 `daemon-debug.log` 写一条 `migrated-data` 事件。复制完成后保留旧目录只读。
-    /// </summary>
-    public bool CompatMigrateLegacyDataDir { get; set; } = true;
-
-    /// <summary>
-    /// 写入数据时（session.json / settings.json / snippets.json）若新文件不存在但旧文件存在，
-    /// 优先以新路径为目标。
-    /// </summary>
-    public bool CompatPreferLegacyDataDirOnWrite { get; set; } = false;
 
     /// <summary>
     /// `ecode.json` 解析时，额外回退到 `.cmux/cmux.json` 与 `~/.config/cmux/cmux.json`。

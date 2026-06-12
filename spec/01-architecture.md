@@ -115,7 +115,7 @@ ECode.Smoke ──▶  ECode.Core
 | **CLI** | `ecode.exe` | 单次执行 | 解析 argv、连接命名管道并请求 |
 | **Shell** | `pwsh.exe` / `powershell.exe` / `cmd.exe` / `wsl.exe` / Git Bash | 终端生命周期 | 用户实际操作的目标进程（嵌入 ConPTY） |
 
-> 守护进程单实例：`Global\ECodeDaemon` 命名互斥体；日志统一写入 `%LOCALAPPDATA%/ecode/daemon-debug.log`。
+> 守护进程单实例：`Global\ECodeDaemon` 命名互斥体；日志统一写入 `%USERPROFILE%/.ecode/daemon-debug.log`。
 
 ### 4.3 启动序列
 
@@ -314,7 +314,7 @@ SosPmApc
 
 ### 7.1 存储根目录
 
-所有用户态数据位于 `%LOCALAPPDATA%/ecode/`：
+所有用户态数据位于 `%USERPROFILE%/.ecode/`：
 
 | 文件 / 目录 | 作用 | 写入策略 |
 |---|---|---|
@@ -432,7 +432,7 @@ SosPmApc
 - **光标闪烁**：`DispatcherTimer` 周期 530ms（`ECodeSettings.CursorBlinkMs`）
 - **回滚缓冲**：`ScrollbackBuffer<T>` 循环数组（O(1) `Add`，避免 `List.RemoveAt(0)` 的 O(n)）
 - **IPC**：单客户端一个 `Channel<string>` + 写线程，避免多个事件并发写管道
-- **诊断日志**：`%LOCALAPPDATA%/ecode/daemon-debug.log` 共享追加（`FileShare.ReadWrite`）
+- **诊断日志**：`%USERPROFILE%/.ecode/daemon-debug.log` 共享追加（`FileShare.ReadWrite`）
 
 ---
 

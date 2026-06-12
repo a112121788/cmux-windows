@@ -5,7 +5,7 @@ using ECode.Core.Models;
 namespace ECode.Core.Services;
 
 /// <summary>
-/// 管理命令片段，使用 JSON 持久化到 <c>%LOCALAPPDATA%/ecode/snippets.json</c>。
+/// 管理命令片段，使用 JSON 持久化到 <c>%USERPROFILE%/.ecode/snippets.json</c>。
 /// 首次使用时填充有用的默认片段。
 /// </summary>
 public class SnippetService

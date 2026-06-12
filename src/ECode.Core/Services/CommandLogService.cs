@@ -7,7 +7,7 @@ namespace ECode.Core.Services;
 
 /// <summary>
 /// 通过 OSC 133 提示符标记追踪 Shell 命令，并维护可搜索的日志。
-/// 已完成的命令持久化到 %LOCALAPPDATA%/ecode/logs 下的按日 JSONL 文件。
+/// 已完成的命令持久化到 %USERPROFILE%/.ecode/logs 下的按日 JSONL 文件。
 /// </summary>
 public class CommandLogService
 {

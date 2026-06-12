@@ -123,10 +123,10 @@ publish/
     └── ecode.exe (+ 运行时文件)
 ```
 
-`%LOCALAPPDATA%/ecode/`（运行时生成）：
+`%USERPROFILE%/.ecode/`（运行时生成）：
 
 ```text
-%LOCALAPPDATA%/ecode/
+%USERPROFILE%/.ecode/
 ├── session.json                 # 会话状态
 ├── settings.json                # 全局设置（含 AgentSettings）
 ├── snippets.json                # 代码片段
@@ -167,7 +167,7 @@ publish/
 
 | 现象 | 排查方向 |
 |---|---|
-| 启动后立即崩溃 | 检查 `%LOCALAPPDATA%/ecode/daemon-debug.log`；`ecode-app.exe`（`ECode` 主程序）的全局异常提示 |
+| 启动后立即崩溃 | 检查 `%USERPROFILE%/.ecode/daemon-debug.log`；`ecode-app.exe`（`ECode` 主程序）的全局异常提示 |
 | CLI 连不上 | 确认 ecode-app.exe 在运行；`\\.\pipe\ecode` 是否被占用；看 daemon-debug.log |
 | 守护进程频繁退出 | 看是否 24 小时空闲自动退出；或者 `Global\ECodeDaemon` 互斥体冲突 |
 | 终端无输出 | ConPTY 兼容性问题；先看 `tests/ECode.Smoke` 是否通过 |

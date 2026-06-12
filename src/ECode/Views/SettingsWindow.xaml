@@ -1353,7 +1353,7 @@
                                 <TextBlock Foreground="{StaticResource ForegroundDimBrush}" FontSize="12">
                                     <Run Text="运行时：.NET 10" /><LineBreak />
                                     <Run Text="框架：WPF + CommunityToolkit.Mvvm" /><LineBreak />
-                                    <Run Text="配置文件：%LOCALAPPDATA%\ecode\settings.json" />
+                                    <Run Text="配置文件：%USERPROFILE%\.ecode\settings.json" />
                                 </TextBlock>
                             </StackPanel>
                         </Border>

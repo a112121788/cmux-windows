@@ -4,7 +4,7 @@ namespace ECode.Core.Config;
 
 /// <summary>
 /// 管理 <see cref="ECodeSettings"/> 的读取、写入和缓存。
-/// 设置存储于 <c>%LOCALAPPDATA%/ecode/settings.json</c>。
+/// 设置存储于 <c>%USERPROFILE%/.ecode/settings.json</c>。
 /// </summary>
 public static class SettingsService
 {

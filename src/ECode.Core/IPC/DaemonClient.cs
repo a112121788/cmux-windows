@@ -352,8 +352,7 @@ public sealed class DaemonClient : IDisposable
     {
         try
         {
-            var logDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ecode");
+            var logDir = CompatibilityOptions.GetAppDataDir();
             Directory.CreateDirectory(logDir);
             var logPath = Path.Combine(logDir, "daemon-debug.log");
             // 使用 FileShare.ReadWrite 使守护进程和客户端可以并发写入

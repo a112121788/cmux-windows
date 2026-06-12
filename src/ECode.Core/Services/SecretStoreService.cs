@@ -5,7 +5,7 @@ using ECode.Core.Config;
 namespace ECode.Core.Services;
 
 /// <summary>
-/// 使用 Windows DPAPI 加密存储密钥到 %LOCALAPPDATA%/ecode/secrets.json。
+/// 使用 Windows DPAPI 加密存储密钥到 %USERPROFILE%/.ecode/secrets.json。
 /// </summary>
 public static class SecretStoreService
 {

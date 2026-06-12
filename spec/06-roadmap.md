@@ -402,7 +402,7 @@ CommandPalette item selected
 
 ### M2.2 新增数据模型
 
-建议新增 `%LOCALAPPDATA%/ecode/resume.json`：
+建议新增 `%USERPROFILE%/.ecode/resume.json`：
 
 ```jsonc
 {
@@ -816,7 +816,7 @@ M6 先支持 Claude / Codex / OpenCode 三个。
 - 新机器安装后 `ecode-app.exe` 可启动，`ecode.exe` 在 PATH 中可用。
 - `ecode hooks setup codex` 能检测并写入 hook，失败时打印可操作错误。
 - 卸载后 PATH 与 hook 可清理。
-- 更新过程不丢 `%LOCALAPPDATA%/ecode` 数据。
+- 更新过程不丢 `%USERPROFILE%/.ecode` 数据。
 
 ---
 
@@ -991,7 +991,7 @@ docs/
 | `Cmd` 快捷键 | 映射为 `Ctrl`，涉及窗口级能力时使用 `Ctrl+Shift` 或 `Ctrl+Alt` |
 | WKWebView API | WebView2 对应 API；缺口返回 `not_supported` |
 | Sparkle | Velopack |
-| `~/Library/Application Support/ecode` | `%LOCALAPPDATA%/ecode` |
+| `~/Library/Application Support/ecode` | `%USERPROFILE%/.ecode` |
 | Unix socket | Named Pipe |
 | shell hooks | PowerShell / cmd / agent config / wrapper exe |
 | `~/.config/ecode` | `%USERPROFILE%\.config\ecode` |

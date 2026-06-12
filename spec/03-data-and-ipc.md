@@ -187,7 +187,7 @@ public class DaemonSessionInfo {
 
 ---
 
-## 4. 会话持久化（`%LOCALAPPDATA%/ecode/session.json`）
+## 4. 会话持久化（`%USERPROFILE%/.ecode/session.json`）
 
 ### 4.1 Schema（`SessionState`）
 
@@ -264,7 +264,7 @@ public class DaemonSessionInfo {
 
 ---
 
-## 5. 命令日志（`%LOCALAPPDATA%/ecode/logs/`）
+## 5. 命令日志（`%USERPROFILE%/.ecode/logs/`）
 
 ### 5.1 文件结构
 
@@ -344,7 +344,7 @@ public NotificationSource Source; // Osc9 / Osc99 / Osc777 / Cli
 
 ---
 
-## 7. 代码片段（`%LOCALAPPDATA%/ecode/snippets.json`）
+## 7. 代码片段（`%USERPROFILE%/.ecode/snippets.json`）
 
 `List<Snippet>` JSON 数组；`Snippet.Content` 支持 `{{key}}` 占位符：
 
@@ -355,7 +355,7 @@ public NotificationSource Source; // Osc9 / Osc99 / Osc777 / Cli
 
 ---
 
-## 8. Agent 会话（`%LOCALAPPDATA%/ecode/agent/`）
+## 8. Agent 会话（`%USERPROFILE%/.ecode/agent/`）
 
 ```
 agent/
@@ -373,7 +373,7 @@ agent/
 
 ---
 
-## 9. 加密存储（`%LOCALAPPDATA%/ecode/secrets.json`）
+## 9. 加密存储（`%USERPROFILE%/.ecode/secrets.json`）
 
 ```jsonc
 {
@@ -393,7 +393,7 @@ agent/
 
 ## 10. 守护进程诊断日志
 
-`%LOCALAPPDATA%/ecode/daemon-debug.log`：
+`%USERPROFILE%/.ecode/daemon-debug.log`：
 
 - 由 `DaemonClient.LogDaemon` 写入（共享追加 `FileShare.ReadWrite`，避免客户端与守护进程互锁）
 - 行格式：`[HH:mm:ss.fff] <message>`

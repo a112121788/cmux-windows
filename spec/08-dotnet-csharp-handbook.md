@@ -682,7 +682,7 @@ public class DaemonClientTests
 | `ILSpy` / `ILDasm` | 反编译，验证源生成器没出意外 |
 | `Get-ChildItem \\.\pipe\` | 列命名管道，调试 IPC |
 | `DebugView` (Sysinternals) | 看 `OutputDebugString`，捕获 P/Invoke 错误 |
-| `%LOCALAPPDATA%/ecode/daemon-debug.log` | 守护进程日志 |
+| `%USERPROFILE%/.ecode/daemon-debug.log` | 守护进程日志 |
 | WPF Snoop | 看可视化树、绑定值 |
 
 常用快捷（VS / Rider）：
