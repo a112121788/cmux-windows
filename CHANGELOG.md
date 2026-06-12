@@ -12,6 +12,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 
 - 新增 `scripts/ci.ps1` 本地 CI 入口，串联 restore/build/test，并对 smoke/publish 提供显式开关与 dry-run gate。
 - GitHub Actions 改为复用本地 CI 入口，减少本地验证与远端 CI 的命令漂移。
+- 新增 daemon IPC DTO roundtrip 测试，覆盖 request、response、session info 与 event 序列化兼容性。
 
 ### Changed
 

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using System.Text.Json;
+using ECode.Core.IPC;
 using ECode.Core.Models;
 using ECode.Core.Services;
 using ECode.Core.Terminal;
@@ -10,6 +11,100 @@ using Xunit;
 
 namespace ECode.Tests;
 
+public class DaemonMessageRoundTripTests
+{
+    [Fact]
+    public void DaemonRequest_RoundTripsAllPublicFields()
+    {
+        var request = new DaemonRequest
+        {
+            Type = DaemonMessageTypes.SessionCreate,
+            PaneId = "pane-1",
+            Cols = 120,
+            Rows = 40,
+            WorkingDirectory = @"C:\repo",
+            Command = "pwsh",
+            Data = "hello",
+        };
+
+        var roundTripped = RoundTrip<DaemonRequest>(request);
+
+        roundTripped.Type.Should().Be(DaemonMessageTypes.SessionCreate);
+        roundTripped.PaneId.Should().Be("pane-1");
+        roundTripped.Cols.Should().Be(120);
+        roundTripped.Rows.Should().Be(40);
+        roundTripped.WorkingDirectory.Should().Be(@"C:\repo");
+        roundTripped.Command.Should().Be("pwsh");
+        roundTripped.Data.Should().Be("hello");
+    }
+
+    [Fact]
+    public void DaemonResponse_RoundTripsSuccessErrorAndData()
+    {
+        var response = new DaemonResponse
+        {
+            Success = false,
+            Error = "boom",
+            Data = "{\"ok\":false}",
+        };
+
+        var roundTripped = RoundTrip<DaemonResponse>(response);
+
+        roundTripped.Success.Should().BeFalse();
+        roundTripped.Error.Should().Be("boom");
+        roundTripped.Data.Should().Be("{\"ok\":false}");
+    }
+
+    [Fact]
+    public void DaemonSessionInfo_RoundTripsAttachMetadata()
+    {
+        var session = new DaemonSessionInfo
+        {
+            PaneId = "pane-2",
+            Cols = 100,
+            Rows = 30,
+            WorkingDirectory = @"D:\work",
+            Title = "agent",
+            IsRunning = true,
+            IsExisting = true,
+        };
+
+        var roundTripped = RoundTrip<DaemonSessionInfo>(session);
+
+        roundTripped.PaneId.Should().Be("pane-2");
+        roundTripped.Cols.Should().Be(100);
+        roundTripped.Rows.Should().Be(30);
+        roundTripped.WorkingDirectory.Should().Be(@"D:\work");
+        roundTripped.Title.Should().Be("agent");
+        roundTripped.IsRunning.Should().BeTrue();
+        roundTripped.IsExisting.Should().BeTrue();
+    }
+
+    [Fact]
+    public void DaemonEvent_RoundTripsEventPayload()
+    {
+        var evt = new DaemonEvent
+        {
+            Type = DaemonMessageTypes.EventOutput,
+            PaneId = "pane-3",
+            Data = "output text",
+        };
+
+        var roundTripped = RoundTrip<DaemonEvent>(evt);
+
+        roundTripped.Type.Should().Be(DaemonMessageTypes.EventOutput);
+        roundTripped.PaneId.Should().Be("pane-3");
+        roundTripped.Data.Should().Be("output text");
+    }
+
+    private static T RoundTrip<T>(T value)
+    {
+        var json = JsonSerializer.Serialize(value);
+        var roundTripped = JsonSerializer.Deserialize<T>(json);
+        roundTripped.Should().NotBeNull();
+        return roundTripped!;
+    }
+}
 
 public class VersionServiceTests
 {
