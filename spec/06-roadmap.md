@@ -210,7 +210,7 @@ var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0";
 
 ```jsonc
 {
-  "version": "1.0.6",
+  "version": "0.2.0",
   "protocol": "v1",
   "workspaces": 3,
   "selectedWorkspace": "...",

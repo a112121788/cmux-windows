@@ -37,7 +37,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
   - `.cmux/cmux.json` / `%USERPROFILE%\.config\cmux\cmux.json` → `.ecode/ecode.json` / `%USERPROFILE%\.config\ecode\ecode.json`
   - CI artifact 名称：`cmux-windows-x64` → `ecode-windows-x64`、`cmux-cli-windows-x64` → `ecode-cli-windows-x64`
 - 守护进程日志前缀：`[cmux-daemon]` → `[ecode-daemon]`。
-- 主程序集版本起点：`1.0.6` → `0.1.0`（按 roadmap 重启版本线）。
+- 主程序集版本起点：`0.2.0` → `0.1.0`（按 roadmap 重启版本线）。
 
 ### Compatibility
 

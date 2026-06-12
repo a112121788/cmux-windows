@@ -28,7 +28,7 @@
 | 资源 / 主题键 | `CmuxButton`、`CmuxTextBox` | `ECodeButton`、`ECodeTextBox` |
 | MCP / Agent 工具名 | `cmux_status`、`cmux_pane_*`、`cmux_*` | `ecode_status`、`ecode_pane_*`、`ecode_*`（破坏性） |
 | `%LOCALAPPDATA%\cmux\daemon-debug.log` 标识 | `[cmux-daemon]` | `[ecode-daemon]` |
-| `STATUS.version` 起始版本 | `1.0.6`（程序集版本） | `0.1.0`（roadmap 已规划） |
+| `STATUS.version` 起始版本 | `0.2.0`（程序集版本） | `0.1.0`（roadmap 已规划） |
 
 ## 2. 不重命名的项（明确边界）
 
@@ -60,7 +60,7 @@
 2. `src/ECode.Core/IPC/DaemonClient.cs`：`PipeName = "cmux-daemon"` → `"ecode-daemon"`；启动探测中找 `cmux-daemon.exe` 的回退路径全部改为 `ecode-daemon.exe`，`Cmux.Daemon` 目录名改为 `ECode.Daemon`。
 3. `src/ECode.Daemon/Program.cs`：`MutexName = "Global\\CmuxDaemon"` → `"Global\\ECodeDaemon"`；所有 `[cmux-daemon]` 日志前缀改为 `[ecode-daemon]`。
 4. `src/ECode.Core/Services/{SessionPersistenceService,SnippetService,SecretStoreService,CommandLogService,AgentConversationStoreService}.cs`：`%LOCALAPPDATA%\ecode` / `%LOCALAPPDATA%\cmux` → `%USERPROFILE%\.ecode`；不保留旧数据目录读取/迁移逻辑。
-5. `src/ECode.Cli/Program.cs`：帮助文本中所有 `cmux` 字面量改为 `ecode`；`"cmux 1.0.6 (Windows)"` → `"ecode 0.1.0 (Windows)"`；`Console.Error` 中 `Could not connect to cmux` 改为 `ecode`；`Usage:` 提示同步。
+5. `src/ECode.Cli/Program.cs`：帮助文本中所有 `cmux` 字面量改为 `ecode`；`"cmux 0.2.0 (Windows)"` → `"ecode 0.1.0 (Windows)"`；`Console.Error` 中 `Could not connect to cmux` 改为 `ecode`；`Usage:` 提示同步。
 6. `src/ECode/Views/MainWindow.xaml.cs` 等：窗口标题 `ECode` 保持；about 对话框 / 状态栏文案中 `cmux` → `ecode`；提示词字符串同步（`"running inside cmux"` → `"running inside ecode"`）。
 
 ### PR3：MCP / Agent 工具契约（破坏性，需文档配套）
@@ -75,7 +75,7 @@
 1. 根 `README.md` / `README.en.md`：项目名、截图说明、徽章名称、安装命令中的 `cmuxw.exe` / `cmux.exe` 改为 `ecode-app.exe` / `ecode.exe`；`install PATH` 段落中“放入 PATH”的目录名同步。
 2. `spec/01-architecture.md` ~ `spec/07-implementation-backlog.md`：所有本仓库自称处由 `cmux-windows` 改为 `ECode`；`STATUS.version` 起始 `0.1.0`；管道/互斥体/数据目录表格同步；`%LOCALAPPDATA%\ecode` / `%LOCALAPPDATA%\cmux` → `%USERPROFILE%\.ecode`。
 3. `.github/ISSUE_TEMPLATE/*.yml`：
-   - `bug_report.yml`：版本字段提示从 `1.0.6` 改为 `0.1.0`；日志路径 `%LOCALAPPDATA%/cmux/daemon-debug.log` → `%USERPROFILE%/.ecode/daemon-debug.log`。
+   - `bug_report.yml`：版本字段提示从 `0.2.0` 改为 `0.1.0`；日志路径 `%LOCALAPPDATA%/cmux/daemon-debug.log` → `%USERPROFILE%/.ecode/daemon-debug.log`。
    - `cmux_json_schema.yml`：标题与提示改为 `ecode.json` / `.ecode/ecode.json`；与 macOS 兼容时单独说明（上游 `cmux.json` 仍可读）。
    - 其他模板中的 `cmux` 字面量同步。
 4. `.github/PULL_REQUEST_TEMPLATE.md`、`config.yml`：链接文本更新。
