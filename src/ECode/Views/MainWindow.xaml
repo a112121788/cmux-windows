@@ -18,19 +18,19 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FF141420" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#FFE2E2E9" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF252547" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFE2E2E9" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF141420" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FF141420" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FF11130F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#FFE7E4D6" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF27301F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFE7E4D6" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF11130F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FF11130F" />
 
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#FF141420" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#FF252547" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="#FF2A2A3C" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightLightBrushKey}" Color="#FF2A2A3C" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#FF2A2A3C" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkDarkBrushKey}" Color="#FF2A2A3C" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#FF11130F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#FF27301F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="#FF34372F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightLightBrushKey}" Color="#FF34372F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#FF34372F" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkDarkBrushKey}" Color="#FF34372F" />
 
         <Style x:Key="AppMenuStyle" TargetType="Menu">
             <Setter Property="Background" Value="{StaticResource SidebarBackgroundBrush}" />
@@ -60,17 +60,17 @@
                                    Focusable="False"
                                    PopupAnimation="None"
                                    IsOpen="{TemplateBinding IsSubmenuOpen}">
-                                <Border Background="#FF141420" BorderBrush="#FF2A2A3C" BorderThickness="1" Padding="4" SnapsToDevicePixels="True">
+                                <Border Background="#FF11130F" BorderBrush="#FF34372F" BorderThickness="1" Padding="4" SnapsToDevicePixels="True">
                                     <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
                                 </Border>
                             </Popup>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="TopItemBg" Property="Background" Value="#FF1A1A2E" />
+                                <Setter TargetName="TopItemBg" Property="Background" Value="#FF1C2118" />
                             </Trigger>
                             <Trigger Property="IsSubmenuOpen" Value="True">
-                                <Setter TargetName="TopItemBg" Property="Background" Value="#FF1A1A2E" />
+                                <Setter TargetName="TopItemBg" Property="Background" Value="#FF1C2118" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -100,7 +100,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="SubItemBg" Property="Background" Value="#FF252547" />
+                                <Setter TargetName="SubItemBg" Property="Background" Value="#FF27301F" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="{StaticResource ForegroundDimBrush}" />
@@ -116,7 +116,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Separator">
-                        <Border Height="1" Margin="6,4" Background="#FF2A2A3C" />
+                        <Border Height="1" Margin="6,4" Background="#FF34372F" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -127,7 +127,7 @@
         <vm:MainViewModel />
     </Window.DataContext>
 
-    <Border x:Name="WindowBorder" Background="{StaticResource BackgroundBrush}"
+    <Border x:Name="WindowBorder" Background="{StaticResource AppWindowBackgroundBrush}"
             CornerRadius="{StaticResource WindowCornerRadius}"
             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
         <Border.Clip>
@@ -140,7 +140,7 @@
             </Grid.RowDefinitions>
 
             <!-- Custom title bar -->
-            <Border Grid.Row="0" Background="{StaticResource SidebarBackgroundBrush}"
+            <Border Grid.Row="0" Background="{StaticResource SurfaceTabBackgroundBrush}"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                 <Grid Height="38">
                     <Grid.ColumnDefinitions>
@@ -216,7 +216,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Sidebar -->
-                <Border x:Name="SidebarBorder" Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}">
+                <Border x:Name="SidebarBorder" Grid.Column="0" Background="{StaticResource SidebarGradientBrush}">
 
                     <Grid>
                         <Grid.RowDefinitions>
@@ -261,7 +261,7 @@
                                 <TextBox x:Name="WorkspaceFilterBox"
                                          Grid.Row="1" Grid.ColumnSpan="2"
                                          Margin="0,8,0,0" Padding="8,5"
-                                         Background="#FF141420" Foreground="{StaticResource ForegroundBrush}"
+                                         Background="#FF11130F" Foreground="{StaticResource ForegroundBrush}"
                                          BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                          CaretBrush="{StaticResource ForegroundBrush}" SelectionBrush="{StaticResource AccentBrush}"
                                          ToolTip="按名称、分支或目录过滤项目"
@@ -297,8 +297,8 @@
                                                                Margin="0,4">
                                                         <Rectangle.Fill>
                                                             <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                                                                <GradientStop Color="#FF6366F1" Offset="0" />
-                                                                <GradientStop Color="#FFA78BFA" Offset="1" />
+                                                                <GradientStop Color="#FF1FA0FF" Offset="0" />
+                                                                <GradientStop Color="#FFE6C56E" Offset="1" />
                                                             </LinearGradientBrush>
                                                         </Rectangle.Fill>
                                                     </Rectangle>
@@ -356,8 +356,8 @@
                                                 Visibility="{Binding TotalUnreadCount, Converter={StaticResource IntToVisibility}}">
                                             <Border.Background>
                                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                    <GradientStop Color="#FF6366F1" Offset="0" />
-                                                    <GradientStop Color="#FFA78BFA" Offset="1" />
+                                                    <GradientStop Color="#FF1FA0FF" Offset="0" />
+                                                    <GradientStop Color="#FFE6C56E" Offset="1" />
                                                 </LinearGradientBrush>
                                             </Border.Background>
                                             <TextBlock Text="{Binding TotalUnreadCount}" FontSize="10"
@@ -391,7 +391,7 @@
                         DataContext="{Binding SelectedWorkspace}" />
 
                     <!-- Toolbar -->
-                    <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}"
+                    <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource SurfaceTabBackgroundBrush}"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
                             Padding="6,2">
                         <StackPanel Orientation="Horizontal">
@@ -459,7 +459,7 @@
                         Visibility="Collapsed" />
 
                     <!-- Status bar -->
-                    <Border Grid.Row="3" Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}"
+                    <Border Grid.Row="3" Grid.Column="0" Background="{StaticResource SurfaceTabBackgroundBrush}"
                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
                             Padding="10,3">
                         <Grid>
