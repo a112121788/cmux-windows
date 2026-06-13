@@ -55,7 +55,31 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private DateTime _attentionRequestedAtUtc;
 
+    [ObservableProperty]
+    private int _browserNavigationVersion;
+
     public event Action<string>? WorkingDirectoryChanged;
+
+    public bool IsBrowser => Surface.Kind == SurfaceKind.Browser;
+
+    public void OpenBrowserUrl(string url)
+    {
+        if (!IsBrowser)
+            return;
+
+        var normalized = BrowserPaneViewModel.NormalizeUrl(url);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return;
+
+        Surface.BrowserUrl = normalized;
+        if (Surface.BrowserHistory.Count == 0 ||
+            !string.Equals(Surface.BrowserHistory[^1], normalized, StringComparison.Ordinal))
+        {
+            Surface.BrowserHistory.Add(normalized);
+        }
+
+        BrowserNavigationVersion++;
+    }
 
     /// <summary>Gets the shell process PID from the focused pane session.</summary>
     public int? ShellPid
@@ -86,22 +110,26 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         daemon.BellReceived += OnDaemonBellReceived;
         daemon.Disconnected += OnDaemonDisconnected;
 
-        // 为所有叶子节点启动终端会话
-        foreach (var leaf in _rootNode.GetLeaves())
+        // Browser surface 由 BrowserControl/WebView2 托管，不启动终端进程。
+        if (!IsBrowser)
         {
-            if (leaf.PaneId != null)
+            // 为所有叶子节点启动终端会话
+            foreach (var leaf in _rootNode.GetLeaves())
             {
-                Surface.PaneSnapshots.TryGetValue(leaf.PaneId, out var snapshot);
-                if (snapshot?.CommandHistory is { Count: > 0 })
+                if (leaf.PaneId != null)
                 {
-                    _paneCommandHistory[leaf.PaneId] = snapshot.CommandHistory
-                        .Select(App.CommandLogService.SanitizeCommandForStorage)
-                        .Where(c => !string.IsNullOrWhiteSpace(c))
-                        .Cast<string>()
-                        .ToList();
-                }
+                    Surface.PaneSnapshots.TryGetValue(leaf.PaneId, out var snapshot);
+                    if (snapshot?.CommandHistory is { Count: > 0 })
+                    {
+                        _paneCommandHistory[leaf.PaneId] = snapshot.CommandHistory
+                            .Select(App.CommandLogService.SanitizeCommandForStorage)
+                            .Where(c => !string.IsNullOrWhiteSpace(c))
+                            .Cast<string>()
+                            .ToList();
+                    }
 
-                StartSession(leaf.PaneId, snapshot?.WorkingDirectory, snapshot, snapshot?.Shell);
+                    StartSession(leaf.PaneId, snapshot?.WorkingDirectory, snapshot, snapshot?.Shell);
+                }
             }
         }
 
@@ -206,7 +234,10 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
 
             try
             {
-                session.Start(command: _paneShells.GetValueOrDefault(paneId) ?? GetConfiguredShell(), workingDirectory: cwd);
+                session.Start(
+                    command: _paneShells.GetValueOrDefault(paneId) ?? GetConfiguredShell(),
+                    workingDirectory: cwd,
+                    environment: TerminalEnvironmentVariables.ForWorkspace(_workspaceId));
                 DaemonLog($"[DaemonDisconnected] {paneId} → local session started");
             }
             catch (Exception ex)
@@ -443,7 +474,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
             {
                 DaemonLog($"[DaemonSession:{paneId}] Calling CreateSessionAsync ({initCols}x{initRows})...");
                 var result = await daemon.CreateSessionAsync(
-                    paneId, initCols, initRows, effectiveCwd);
+                    paneId, initCols, initRows, effectiveCwd, workspaceId: _workspaceId);
 
                 if (result == null)
                 {
@@ -451,7 +482,10 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
                     _daemonPanes.Remove(paneId);
                     session.DaemonWrite = null;
                     session.DaemonResize = null;
-                    session.Start(command: shell, workingDirectory: effectiveCwd);
+                    session.Start(
+                        command: shell,
+                        workingDirectory: effectiveCwd,
+                        environment: TerminalEnvironmentVariables.ForWorkspace(_workspaceId));
                     return;
                 }
 
@@ -500,7 +534,10 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
                 _daemonPanes.Remove(paneId);
                 session.DaemonWrite = null;
                 session.DaemonResize = null;
-                session.Start(command: shell, workingDirectory: effectiveCwd);
+                session.Start(
+                    command: shell,
+                    workingDirectory: effectiveCwd,
+                    environment: TerminalEnvironmentVariables.ForWorkspace(_workspaceId));
             }
         });
 
@@ -522,7 +559,10 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         WireSessionEvents(session, paneId);
 
         _sessions[paneId] = session;
-        session.Start(command: shell, workingDirectory: workingDirectory ?? restoredState?.WorkingDirectory);
+        session.Start(
+            command: shell,
+            workingDirectory: workingDirectory ?? restoredState?.WorkingDirectory,
+            environment: TerminalEnvironmentVariables.ForWorkspace(_workspaceId));
 
         if (restoredState?.BufferSnapshot != null)
             session.RestoreBufferSnapshot(restoredState.BufferSnapshot);
@@ -579,6 +619,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
 
     public void SplitFocused(SplitDirection direction, string? shell = null)
     {
+        if (IsBrowser) return;
         if (FocusedPaneId == null) return;
 
         var node = RootNode.FindNode(FocusedPaneId);

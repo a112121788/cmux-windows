@@ -12,7 +12,7 @@ using ECode.Daemon;
 var newMutex = new Mutex(true, CompatibilityOptions.NewMutexName, out bool createdNew);
 if (!createdNew)
 {
-    Log("ecode-daemon is already running (mutex exists). Exiting.");
+    Log("startup.mutex-exists", "ecode-daemon is already running (mutex exists). Exiting.");
     return 1;
 }
 
@@ -22,7 +22,7 @@ if (CompatibilityOptions.ShouldHonorLegacyMutex())
     {
         if (Mutex.TryOpenExisting(CompatibilityOptions.LegacyMutexName, out _))
         {
-            Log("[ecode-daemon] Legacy cmux-daemon is running; deferring to it.");
+            Log("startup.legacy-mutex", "Legacy cmux-daemon is running; deferring to it.");
             newMutex.Dispose();
             return 0;
         }
@@ -33,7 +33,10 @@ if (CompatibilityOptions.ShouldHonorLegacyMutex())
     }
 }
 
-Log($"[ecode-daemon] Starting (PID {Environment.ProcessId})...");
+Log("startup.begin", "Starting ecode-daemon", fields: new Dictionary<string, object?>
+{
+    ["pid"] = Environment.ProcessId,
+});
 
 var sessionManager = new DaemonSessionManager();
 var pipeServer = new DaemonPipeServer(sessionManager);
@@ -47,27 +50,41 @@ DateTime lastActivity = DateTime.UtcNow;
 pipeServer.ClientConnected += () =>
 {
     lastActivity = DateTime.UtcNow;
-    Log($"[ecode-daemon] Client connected (total: {pipeServer.ConnectedClients})");
+    Log("client.connected", "Client connected", fields: new Dictionary<string, object?>
+    {
+        ["connectedClients"] = pipeServer.ConnectedClients,
+    });
 };
 
 pipeServer.ClientDisconnected += () =>
 {
     lastActivity = DateTime.UtcNow;
-    Log($"[ecode-daemon] Client disconnected (total: {pipeServer.ConnectedClients}, sessions: {sessionManager.ActiveSessionCount})");
+    Log("client.disconnected", "Client disconnected", fields: new Dictionary<string, object?>
+    {
+        ["activeSessions"] = sessionManager.ActiveSessionCount,
+        ["connectedClients"] = pipeServer.ConnectedClients,
+    });
 };
 
 sessionManager.SessionCreated += paneId =>
 {
     lastActivity = DateTime.UtcNow;
-    Log($"[ecode-daemon] Session created: {paneId} (total: {sessionManager.ActiveSessionCount})");
+    Log("session.created", "Session created", paneId, new Dictionary<string, object?>
+    {
+        ["activeSessions"] = sessionManager.ActiveSessionCount,
+    });
 };
 
 sessionManager.SessionExited += (paneId, exitCode) =>
 {
-    Log($"[ecode-daemon] Session exited: {paneId} code={exitCode} (total: {sessionManager.ActiveSessionCount})");
+    Log("session.exited", "Session exited", paneId, new Dictionary<string, object?>
+    {
+        ["activeSessions"] = sessionManager.ActiveSessionCount,
+        ["exitCode"] = exitCode,
+    });
 };
 
-Log("[ecode-daemon] Starting pipe server...");
+Log("pipe-server.start", "Starting pipe server");
 // 在专用后台线程上运行管道服务器（同步 I/O）
 var serverThread = new Thread(() =>
 {
@@ -79,7 +96,7 @@ var serverThread = new Thread(() =>
     Name = "PipeServer-Accept",
 };
 serverThread.Start();
-Log("[ecode-daemon] Pipe server started, waiting for connections...");
+Log("pipe-server.started", "Pipe server started, waiting for connections");
 
 // 空闲监控循环 —— 阻塞主线程直到关闭
 while (!cts.Token.IsCancellationRequested)
@@ -94,7 +111,7 @@ while (!cts.Token.IsCancellationRequested)
         && sessionManager.ActiveSessionCount == 0
         && DateTime.UtcNow - lastActivity > idleTimeout)
     {
-        Log("[ecode-daemon] Idle timeout reached. Shutting down.");
+        Log("shutdown.idle-timeout", "Idle timeout reached. Shutting down.");
         cts.Cancel();
     }
 }
@@ -102,10 +119,18 @@ while (!cts.Token.IsCancellationRequested)
 newMutex.Dispose();
 
 
-Log($"[ecode-daemon] Shutting down (sessions: {sessionManager.ActiveSessionCount})...");
+Log("shutdown.begin", "Shutting down ecode-daemon", fields: new Dictionary<string, object?>
+{
+    ["activeSessions"] = sessionManager.ActiveSessionCount,
+});
 sessionManager.Dispose();
-Log("[ecode-daemon] Stopped.");
+Log("shutdown.done", "ecode-daemon stopped.");
 return 0;
 
 // 写入与 WPF 客户端共用的 daemon-debug.log
-static void Log(string message) => DaemonClient.LogDaemon(message);
+static void Log(
+    string eventName,
+    string message,
+    string? paneId = null,
+    IReadOnlyDictionary<string, object?>? fields = null) =>
+    DaemonClient.LogDaemon("ecode-daemon", eventName, paneId, message, fields);

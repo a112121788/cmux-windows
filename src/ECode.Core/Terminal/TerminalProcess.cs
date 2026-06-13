@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text;
 using System.Runtime.InteropServices;
 using static ECode.Core.Terminal.ConPtyInterop;
 
@@ -19,7 +20,11 @@ public sealed class TerminalProcess : IDisposable
 
     public event Action? Exited;
 
-    public TerminalProcess(PseudoConsole console, string? command = null, string? workingDirectory = null)
+    public TerminalProcess(
+        PseudoConsole console,
+        string? command = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var shellCommand = command ?? DetectShell();
 
@@ -33,17 +38,27 @@ public sealed class TerminalProcess : IDisposable
         };
         startupInfo.StartupInfo.cb = Marshal.SizeOf<STARTUPINFOEX>();
 
-        bool success = CreateProcess(
-            null,
-            shellCommand,
-            IntPtr.Zero,
-            IntPtr.Zero,
-            false,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-            IntPtr.Zero,
-            workingDirectory,
-            ref startupInfo,
-            out _processInfo);
+        var environmentBlock = CreateEnvironmentBlock(environment);
+        bool success;
+        try
+        {
+            success = CreateProcess(
+                null,
+                shellCommand,
+                IntPtr.Zero,
+                IntPtr.Zero,
+                false,
+                EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+                environmentBlock,
+                workingDirectory,
+                ref startupInfo,
+                out _processInfo);
+        }
+        finally
+        {
+            if (environmentBlock != IntPtr.Zero)
+                Marshal.FreeHGlobal(environmentBlock);
+        }
 
         if (!success)
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to create process with ConPTY.");
@@ -102,6 +117,22 @@ public sealed class TerminalProcess : IDisposable
             return comspec;
 
         return "cmd.exe";
+    }
+
+    private static IntPtr CreateEnvironmentBlock(IReadOnlyDictionary<string, string>? environment)
+    {
+        if (environment == null || environment.Count == 0)
+            return IntPtr.Zero;
+
+        var merged = TerminalEnvironmentVariables.MergeWithCurrent(environment);
+        var block = new StringBuilder();
+        foreach (var (key, value) in merged)
+        {
+            block.Append(key).Append('=').Append(value).Append('\0');
+        }
+
+        block.Append('\0');
+        return Marshal.StringToHGlobalUni(block.ToString());
     }
 
     private static IntPtr CreateAttributeList(IntPtr conPtyHandle)

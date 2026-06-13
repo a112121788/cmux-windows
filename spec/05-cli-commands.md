@@ -13,7 +13,7 @@
   - 长选项 `--key value` / `--key`（后者等价于 `--key true`）
   - 短选项 `-k value`
   - 位置参数 `_arg0 / _arg1 / …`
-- 值含空格时需加引号（`ECode.Cli` 自动用 `"…"` 包裹）
+- CLI 通过 JSON 参数体发送到主应用管道，带空格 / 引号的 shell 命令可稳定传输
 
 ### 1.2 命令
 
@@ -39,11 +39,14 @@
 
 #### `surface`
 
-| 子命令 | 行为 |
-|---|---|
-| `create` / `new` | `SURFACE.CREATE` |
-| `next` | `SURFACE.NEXT` |
-| `previous` / `prev` | `SURFACE.PREVIOUS` |
+| 子命令 | 选项 | 行为 |
+|---|---|---|
+| `create` / `new` | — | `SURFACE.CREATE` |
+| `next` | — | `SURFACE.NEXT` |
+| `previous` / `prev` | — | `SURFACE.PREVIOUS` |
+| `resume show` / `ls` / `list` | `--all` + 项目 / Surface / pane 定位参数 | `SURFACE.RESUME.SHOW`，默认显示当前聚焦 pane 的恢复绑定 |
+| `resume set` | `--shell <cmd>` 或位置参数、`--kind <tmux|custom>`、`--checkpoint <id>`、`--cwd <path>`、`--trusted <bool>`、`--approvedPrefix <prefix>` | `SURFACE.RESUME.SET`，为当前 / 指定 pane 保存一条可恢复命令 |
+| `resume clear` / `rm` / `remove` | `--id <bindingId>` 或项目 / Surface / pane 定位参数 | `SURFACE.RESUME.CLEAR`，按 ID 或当前 / 指定 pane 清理绑定 |
 
 #### `split`
 
@@ -51,6 +54,30 @@
 |---|---|
 | `right` / `vertical` / `v` | `SPLIT.RIGHT` |
 | `down` / `horizontal` / `h` | `SPLIT.DOWN` |
+
+#### `browser`
+
+| 子命令 | 选项 | 行为 |
+|---|---|---|
+| `open <url>` | `--workspaceId/Name/Index`、`--surfaceId/Name/Index`、`--name <text>` | `BROWSER.OPEN`；若当前/指定 Surface 是 Browser 则复用，否则创建 Browser Surface |
+| `new <url>` | `--workspaceId/Name/Index`、`--name <text>` | `BROWSER.NEW`；始终创建并选中新 Browser Surface |
+| `open-split <url>` / `split <url>` | `--direction <right|down>`、`--workspaceId/Name/Index`、`--name <text>` | `BROWSER.OPEN_SPLIT`；v1 兼容入口，当前以 `fallbackMode:"new-surface"` 创建 Browser Surface |
+
+#### `ecode.json` workspace layout
+
+`ecode reload-config` 与应用启动会读取当前项目的 `.ecode/ecode.json`；`workspace.surfaces` 可声明 Terminal / Browser Surface，Browser Surface 会按 `name` 或 `url` 复用，避免重复创建。
+
+```jsonc
+{
+  "workspace": {
+    "selectedSurfaceIndex": 1,
+    "surfaces": [
+      { "type": "terminal", "name": "Shell" },
+      { "type": "browser", "name": "Preview", "url": "http://localhost:5173" }
+    ]
+  }
+}
+```
 
 #### `status`
 
@@ -97,6 +124,12 @@ COMMAND [k=v [k=v ...]]
 | `SURFACE.CREATE` | — | — | 当前项目新增 Surface |
 | `SURFACE.SELECT` | `workspaceId/Name/Index` + `surfaceId/Name/Index` | 当前项目 / Surface | 切换 Surface（`index` 支持 0/1-based，越界返回错误） |
 | `SURFACE.NEXT` / `SURFACE.PREVIOUS` | — | — | 同 Surface 内切换 |
+| `SURFACE.RESUME.SHOW` | 项目 + Surface + `paneId/Name/Index` 或 `all=true` | 当前聚焦 pane | 返回 `{ok, workspace, surface, pane, bindings}` |
+| `SURFACE.RESUME.SET` | 项目 + Surface + pane + `shell` / `_arg*` + `kind` + `checkpoint` + `workingDirectory/cwd` + `trusted` + `approvedPrefix` | 当前聚焦 pane / `kind=custom` / session cwd | 写入 `resume.json`，同 pane 旧绑定会被替换 |
+| `SURFACE.RESUME.CLEAR` | `id` 或项目 + Surface + pane | 当前聚焦 pane | 按 binding ID 删除，或删除当前 / 指定 pane 的绑定 |
+| `BROWSER.OPEN` | `url` / `_arg0` + 项目 + 可选 Surface 定位 + `name/title` | 当前项目 / Surface | 打开 URL；复用 Browser Surface 或创建新 Browser Surface |
+| `BROWSER.NEW` | `url` / `_arg0` + 项目 + `name/title` | 当前项目 | 创建并选中新 Browser Surface |
+| `BROWSER.OPEN_SPLIT` | `url` / `_arg0` + 项目 + `direction` | 当前项目 / `direction=right` | v1 兼容入口；当前返回 `fallbackMode:"new-surface"` 并创建 Browser Surface |
 | `SPLIT.RIGHT` / `SPLIT.DOWN` | — | — | 对当前聚焦面板分屏 |
 | `PANE.LIST` | 项目 + Surface 定位参数 | 当前选中 | 返回 `{workspace, surface, panes:[{index,id,name,customName,focused,workingDirectory}]}` |
 | `PANE.FOCUS` | 项目 + Surface + `paneId/Name/Index` | 当前聚焦 | 切换面板焦点 |
@@ -126,7 +159,7 @@ COMMAND [k=v [k=v ...]]
 ```jsonc
 // 请求
 { "type": "SESSION_CREATE", "paneId": "pane-uuid", "cols": 120, "rows": 30,
-  "workingDirectory": "C:\\repo", "command": "pwsh.exe" }
+  "workspaceId": "workspace-uuid", "workingDirectory": "C:\\repo", "command": "pwsh.exe" }
 { "type": "SESSION_WRITE",  "paneId": "pane-uuid", "data": "SGVsbG8=" }
 { "type": "SESSION_RESIZE", "paneId": "pane-uuid", "cols": 132, "rows": 40 }
 { "type": "SESSION_CLOSE",  "paneId": "pane-uuid" }
@@ -186,13 +219,30 @@ COMMAND [k=v [k=v ...]]
 
 ## 4. 用法示例
 
-### 4.1 Agent hook 触发通知
+### 4.1 自动化脚本触发通知
 
 ```powershell
-ecode notify --title "Claude Code" --body "等待输入"
+ecode notify --title "Build" --body "等待输入"
 ```
 
-### 4.2 自动化建会话并写入命令
+### 4.2 保存 / 查看恢复绑定
+
+```powershell
+# 保存当前 pane 的 tmux resume 命令
+ecode surface resume set --kind tmux --shell "tmux attach -t work" --checkpoint "sprint-1" --trusted true --approvedPrefix "tmux attach"
+
+# 查看当前 pane 绑定
+ecode surface resume show
+
+# 查看当前 Surface 下全部绑定
+ecode surface resume show --all
+
+# 清理当前 pane 绑定，或用 --id 精确删除
+ecode surface resume clear
+ecode surface resume clear --id <binding-id>
+```
+
+### 4.3 自动化建会话并写入命令
 
 ```powershell
 # 创建项目
@@ -210,7 +260,7 @@ ecode status
 ecode pane read --lines 50
 ```
 
-### 4.3 编程方式直接调 IPC（PowerShell）
+### 4.4 编程方式直接调 IPC（PowerShell）
 
 ```powershell
 $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'ecode', 'InOut')
@@ -222,7 +272,7 @@ $reader.ReadLine() | ConvertFrom-Json
 $pipe.Close()
 ```
 
-### 4.4 让 Agent 触发回车
+### 4.5 让脚本触发回车
 
 `PANE.WRITE` 的 `submitKey` 关键字：
 

@@ -46,7 +46,9 @@ public static class Program
                 "notify" => await HandleNotify(args[1..]),
                 "workspace" => await HandleWorkspace(args[1..]),
                 "surface" => await HandleSurface(args[1..]),
+                "browser" => await HandleBrowser(args[1..]),
                 "split" => await HandleSplit(args[1..]),
+                "reload-config" => await HandleReloadConfig(),
                 "status" => await HandleStatus(),
                 "help" or "--help" or "-h" => PrintHelp(),
                 "version" or "--version" or "-v" => PrintVersion(),
@@ -110,7 +112,7 @@ public static class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: ecode surface <create>");
+            Console.Error.WriteLine("Usage: ecode surface <create|next|previous|resume>");
             return 1;
         }
 
@@ -121,7 +123,29 @@ public static class Program
             "create" or "new" => await SendAndPrint("SURFACE.CREATE"),
             "next" => await SendAndPrint("SURFACE.NEXT"),
             "previous" or "prev" => await SendAndPrint("SURFACE.PREVIOUS"),
+            "resume" => await HandleSurfaceResume(args[1..]),
             _ => Error($"Unknown surface command: {subcommand}"),
+        };
+    }
+
+    private static async Task<int> HandleSurfaceResume(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: ecode surface resume <show|set|clear>");
+            return 1;
+        }
+
+        var subcommand = args[0].ToLowerInvariant();
+        var parsed = ParseArgs(args[1..]);
+        NormalizeResumeSelectorAliases(parsed);
+
+        return subcommand switch
+        {
+            "show" or "ls" or "list" => await SendAndPrint("SURFACE.RESUME.SHOW", parsed),
+            "set" => await SendAndPrint("SURFACE.RESUME.SET", parsed),
+            "clear" or "rm" or "remove" => await SendAndPrint("SURFACE.RESUME.CLEAR", parsed),
+            _ => Error($"Unknown surface resume command: {subcommand}"),
         };
     }
 
@@ -143,9 +167,35 @@ public static class Program
         };
     }
 
+    private static async Task<int> HandleBrowser(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: ecode browser <open|new|open-split> <url>");
+            return 1;
+        }
+
+        var subcommand = args[0].ToLowerInvariant();
+        var parsed = ParseArgs(args[1..]);
+        NormalizeBrowserArgs(parsed);
+
+        return subcommand switch
+        {
+            "open" => await SendAndPrint("BROWSER.OPEN", parsed),
+            "new" => await SendAndPrint("BROWSER.NEW", parsed),
+            "open-split" or "split" => await SendAndPrint("BROWSER.OPEN_SPLIT", parsed),
+            _ => Error($"Unknown browser command: {subcommand}"),
+        };
+    }
+
     private static async Task<int> HandleStatus()
     {
         return await SendAndPrint("STATUS");
+    }
+
+    private static async Task<int> HandleReloadConfig()
+    {
+        return await SendAndPrint("CONFIG.RELOAD");
     }
 
     private static async Task<int> SendAndPrint(string command, Dictionary<string, string>? args = null)
@@ -212,6 +262,30 @@ public static class Program
         return result;
     }
 
+    private static void NormalizeResumeSelectorAliases(Dictionary<string, string> args)
+    {
+        CopyAlias(args, "workspace", "workspaceName");
+        CopyAlias(args, "surface", "surfaceName");
+        CopyAlias(args, "pane", "paneName");
+        CopyAlias(args, "cwd", "workingDirectory");
+    }
+
+    private static void NormalizeBrowserArgs(Dictionary<string, string> args)
+    {
+        CopyAlias(args, "_arg0", "url");
+        CopyAlias(args, "workspace", "workspaceName");
+        CopyAlias(args, "surface", "surfaceName");
+    }
+
+    private static void CopyAlias(Dictionary<string, string> args, string source, string target)
+    {
+        if (args.ContainsKey(target))
+            return;
+
+        if (args.TryGetValue(source, out var value))
+            args[target] = value;
+    }
+
     private static int PrintHelp()
     {
         Console.WriteLine("""
@@ -240,10 +314,27 @@ public static class Program
                 create              Create a new surface
                 next                Switch to next surface
                 previous            Switch to previous surface
+                resume show         Show resume binding for focused/selected pane
+                  --all             Show all bindings in the selected surface
+                resume set          Save resume command for focused/selected pane
+                  --shell <cmd>     Command to run, or pass it as first positional arg
+                  --kind <kind>     tmux | custom (default: custom)
+                  --checkpoint <id> Optional checkpoint/session label
+                  --cwd <path>      Working directory override
+                  --trusted <bool>  Mark binding trusted for future restore
+                resume clear        Clear binding by --id or focused/selected pane
 
               split                 Split the focused pane
                 right               Split vertically (left/right)
                 down                Split horizontally (top/bottom)
+
+              browser               Open browser surfaces
+                open <url>          Open URL in current browser surface or a new one
+                new <url>           Create a new browser surface
+                open-split <url>    v1 compatibility entry; opens a browser surface
+                  --direction <dir> right | down (reserved for mixed-pane support)
+
+              reload-config         Reload ecode.json commands/actions
 
               status                Show ecode status
 
@@ -260,6 +351,7 @@ public static class Program
               Ctrl+Alt+Arrow        Focus pane directionally
               Ctrl+I                Toggle notification panel
               Ctrl+Shift+U          Jump to latest unread
+              Ctrl+Shift+,          Reload ecode.json
             """);
         return 0;
     }

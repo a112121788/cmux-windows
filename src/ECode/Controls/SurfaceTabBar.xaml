@@ -95,6 +95,7 @@
                                     Value="{StaticResource ForegroundBrush}" />
                             <Setter TargetName="tabText" Property="FontWeight" Value="SemiBold" />
                             <Setter TargetName="activeIndicator" Property="Opacity" Value="1" />
+                            <Setter TargetName="closeBtn" Property="Opacity" Value="0.75" />
                         </DataTrigger>
                         <!-- Unread notification styling -->
                         <DataTrigger Binding="{Binding HasNotification}" Value="True">

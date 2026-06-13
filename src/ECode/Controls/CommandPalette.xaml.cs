@@ -45,6 +45,12 @@ public partial class CommandPalette : UserControl
         SearchInput.Focus();
     }
 
+    public void RefreshItems(List<PaletteItem> items)
+    {
+        _allItems = items;
+        Filter(SearchInput.Text);
+    }
+
     public void Hide()
     {
         Visibility = Visibility.Collapsed;

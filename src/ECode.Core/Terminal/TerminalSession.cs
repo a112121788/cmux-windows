@@ -147,7 +147,10 @@ public sealed class TerminalSession : IDisposable
     /// <summary>
     /// 启动终端进程。
     /// </summary>
-    public void Start(string? command = null, string? workingDirectory = null)
+    public void Start(
+        string? command = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var fallbackDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (string.IsNullOrWhiteSpace(fallbackDirectory))
@@ -162,7 +165,7 @@ public sealed class TerminalSession : IDisposable
         lock (_lock)
         {
             _console = PseudoConsole.Create((short)Buffer.Cols, (short)Buffer.Rows);
-            _process = new TerminalProcess(_console, command, effectiveWorkingDirectory);
+            _process = new TerminalProcess(_console, command, effectiveWorkingDirectory, environment);
 
             _readStream = new FileStream(_console.ReadPipe, FileAccess.Read);
             _writeStream = new FileStream(_console.WritePipe, FileAccess.Write);
@@ -247,7 +250,10 @@ public sealed class TerminalSession : IDisposable
             if (!_daemonWriteLogged)
             {
                 _daemonWriteLogged = true;
-                DaemonClient.LogDaemon($"[TerminalSession:{PaneId}] First DaemonWrite ({data.Length} bytes)");
+                DaemonClient.LogDaemon("terminal-session", "daemon-write.first", PaneId, "First daemon write", new Dictionary<string, object?>
+                {
+                    ["bytes"] = data.Length,
+                });
             }
             _ = DaemonWrite(data);
             return;
@@ -258,7 +264,7 @@ public sealed class TerminalSession : IDisposable
             if (!_localWriteNullLogged)
             {
                 _localWriteNullLogged = true;
-                DaemonClient.LogDaemon($"[TerminalSession:{PaneId}] Write called but _writeStream is null (no ConPTY started)");
+                DaemonClient.LogDaemon("terminal-session", "local-write.no-stream", PaneId, "Write called without a local ConPTY stream");
             }
             return;
         }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
@@ -54,24 +55,43 @@ public sealed class DaemonClient : IDisposable
             {
                 // 使用 PipeOptions.Asynchronous（重叠 I/O），使读写可以在同一句柄上并发进行。
                 var pipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
-                LogDaemon($"[Connect] Calling pipe.Connect({timeoutMs}) on '{name}'...");
+                LogDaemon("daemon-client", "connect.attempt", message: $"Connecting to pipe '{name}'", fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                    ["timeoutMs"] = timeoutMs,
+                });
                 pipe.Connect(timeoutMs);
-                LogDaemon($"[Connect] pipe.Connect returned OK, IsConnected={pipe.IsConnected}");
+                LogDaemon("daemon-client", "connect.ok", message: "Pipe connected", fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                    ["isConnected"] = pipe.IsConnected,
+                });
 
                 _pipe = pipe;
                 _reader = new StreamReader(_pipe, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
                 _connected = true;
                 StartListening();
-                LogDaemon("[Connect] Pipe connected, reader ready.");
+                LogDaemon("daemon-client", "connect.reader-ready", message: "Pipe reader ready", fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                });
                 return true;
             }
             catch (TimeoutException)
             {
-                LogDaemon($"[Connect] Timeout after {timeoutMs}ms on '{name}'");
+                LogDaemon("daemon-client", "connect.timeout", message: "Pipe connect timed out", fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                    ["timeoutMs"] = timeoutMs,
+                });
             }
             catch (Exception ex)
             {
-                LogDaemon($"[Connect] Error on '{name}': {ex.GetType().Name}: {ex.Message}");
+                LogDaemon("daemon-client", "connect.error", message: ex.Message, fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                    ["exception"] = ex.GetType().Name,
+                });
             }
         }
 
@@ -90,7 +110,10 @@ public sealed class DaemonClient : IDisposable
         try
         {
             var exePath = FindDaemonExecutable();
-            LogDaemon($"[TryStart] FindDaemonExecutable: {exePath ?? "(null)"}");
+            LogDaemon("daemon-client", "start.find-exe", message: "Resolved daemon executable", fields: new Dictionary<string, object?>
+            {
+                ["path"] = exePath,
+            });
             if (exePath == null) return false;
 
             var psi = new ProcessStartInfo
@@ -102,11 +125,15 @@ public sealed class DaemonClient : IDisposable
             };
 
             var proc = Process.Start(psi);
-            LogDaemon($"[TryStart] Process.Start: pid={proc?.Id}, exited={proc?.HasExited}");
+            LogDaemon("daemon-client", "start.process", message: "Started daemon process", fields: new Dictionary<string, object?>
+            {
+                ["pid"] = proc?.Id,
+                ["exited"] = proc?.HasExited,
+            });
 
             if (proc == null)
             {
-                LogDaemon("[TryStart] Process.Start returned null");
+                LogDaemon("daemon-client", "start.process-null", message: "Process.Start returned null");
                 return false;
             }
 
@@ -116,27 +143,41 @@ public sealed class DaemonClient : IDisposable
                 // 先尝试连接，再休眠（守护进程可能已就绪）
                 if (TryConnect(1000))
                 {
-                    LogDaemon($"[TryStart] Connected on attempt {attempt + 1}");
+                    LogDaemon("daemon-client", "start.connected", message: "Connected to daemon", fields: new Dictionary<string, object?>
+                    {
+                        ["attempt"] = attempt + 1,
+                    });
                     return true;
                 }
 
                 // 检查守护进程是否崩溃
                 if (proc.HasExited)
                 {
-                    LogDaemon($"[TryStart] Daemon process exited with code {proc.ExitCode}");
+                    LogDaemon("daemon-client", "start.exited", message: "Daemon exited before connect", fields: new Dictionary<string, object?>
+                    {
+                        ["exitCode"] = proc.ExitCode,
+                    });
                     return false;
                 }
 
-                LogDaemon($"[TryStart] Attempt {attempt + 1}/{maxRetries} — not yet connectable, waiting {retryDelayMs}ms...");
+                LogDaemon("daemon-client", "start.retry", message: "Daemon not yet connectable", fields: new Dictionary<string, object?>
+                {
+                    ["attempt"] = attempt + 1,
+                    ["maxRetries"] = maxRetries,
+                    ["retryDelayMs"] = retryDelayMs,
+                });
                 Thread.Sleep(retryDelayMs);
             }
 
-            LogDaemon("[TryStart] All attempts failed");
+            LogDaemon("daemon-client", "start.failed", message: "All daemon connect attempts failed");
             return false;
         }
         catch (Exception ex)
         {
-            LogDaemon($"[TryStart] Exception: {ex.GetType().Name}: {ex.Message}");
+            LogDaemon("daemon-client", "start.exception", message: ex.Message, fields: new Dictionary<string, object?>
+            {
+                ["exception"] = ex.GetType().Name,
+            });
             return false;
         }
     }
@@ -144,7 +185,10 @@ public sealed class DaemonClient : IDisposable
     private static string? FindDaemonExecutable()
     {
         var appDir = AppContext.BaseDirectory;
-        LogDaemon($"[FindDaemon] AppContext.BaseDirectory: {appDir}");
+        LogDaemon("daemon-client", "find-exe.app-dir", message: "Scanning app directory", fields: new Dictionary<string, object?>
+        {
+            ["appDir"] = appDir,
+        });
 
         // 1. 在当前可执行文件旁查找（部署/发布场景）
         var candidate = Path.Combine(appDir, "ecode-daemon.exe");
@@ -159,7 +203,10 @@ public sealed class DaemonClient : IDisposable
             while (dir != null && !string.Equals(dir.Name, "src", StringComparison.OrdinalIgnoreCase))
                 dir = dir.Parent;
 
-            LogDaemon($"[FindDaemon] Traversed to src dir: {dir?.FullName ?? "(null)"}");
+            LogDaemon("daemon-client", "find-exe.src-dir", message: "Resolved source directory", fields: new Dictionary<string, object?>
+            {
+                ["srcDir"] = dir?.FullName,
+            });
 
             if (dir != null)
             {
@@ -306,7 +353,12 @@ public sealed class DaemonClient : IDisposable
     {
         if (!IsConnected || _pipe == null)
         {
-            LogDaemon($"[SendRequest] Bail: IsConnected={IsConnected}, pipe={(_pipe != null ? "set" : "null")}");
+            LogDaemon("daemon-client", "request.skip", request.PaneId, "Daemon pipe is not connected", new Dictionary<string, object?>
+            {
+                ["requestType"] = request.Type,
+                ["isConnected"] = IsConnected,
+                ["pipe"] = _pipe != null ? "set" : "null",
+            });
             return null;
         }
 
@@ -318,7 +370,13 @@ public sealed class DaemonClient : IDisposable
 
             var json = JsonSerializer.Serialize(request);
             if (request.Type != DaemonMessageTypes.SessionWrite)
-                LogDaemon($"[SendRequest] Writing: {json[..Math.Min(json.Length, 200)]}");
+            {
+                LogDaemon("daemon-client", "request.send", request.PaneId, "Sending daemon request", new Dictionary<string, object?>
+                {
+                    ["requestType"] = request.Type,
+                    ["payload"] = json[..Math.Min(json.Length, 200)],
+                });
+            }
 
             try
             {
@@ -336,12 +394,22 @@ public sealed class DaemonClient : IDisposable
             timeoutCts.Token.Register(() => tcs.TrySetResult(null));
 
             var response = await tcs.Task.ConfigureAwait(false);
-            LogDaemon($"[SendRequest] Response: Success={response?.Success}, Error={response?.Error}, DataLen={response?.Data?.Length}");
+            LogDaemon("daemon-client", "request.response", request.PaneId, "Received daemon response", new Dictionary<string, object?>
+            {
+                ["requestType"] = request.Type,
+                ["success"] = response?.Success,
+                ["error"] = response?.Error,
+                ["dataLen"] = response?.Data?.Length,
+            });
             return response;
         }
         catch (Exception ex)
         {
-            LogDaemon($"[SendRequest] Exception: {ex.GetType().Name}: {ex.Message}");
+            LogDaemon("daemon-client", "request.exception", request.PaneId, ex.Message, new Dictionary<string, object?>
+            {
+                ["requestType"] = request.Type,
+                ["exception"] = ex.GetType().Name,
+            });
             _pendingResponse = null;
             return null;
         }
@@ -353,6 +421,16 @@ public sealed class DaemonClient : IDisposable
 
     public static void LogDaemon(string message)
     {
+        LogDaemon("daemon", "log", message: message);
+    }
+
+    public static void LogDaemon(
+        string component,
+        string eventName,
+        string? paneId = null,
+        string? message = null,
+        IReadOnlyDictionary<string, object?>? fields = null)
+    {
         try
         {
             var logDir = CompatibilityOptions.GetAppDataDir();
@@ -362,12 +440,67 @@ public sealed class DaemonClient : IDisposable
             // 而不互相阻塞（File.AppendAllText 使用 FileShare.Read 会阻塞）。
             using var fs = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
             using var sw = new StreamWriter(fs);
-            sw.Write($"[{DateTime.Now:HH:mm:ss.fff}] {message}\n");
+            sw.WriteLine(FormatDaemonLogLine(DateTimeOffset.Now, component, eventName, paneId, message, fields));
         }
         catch { }
     }
 
-    public async Task<DaemonSessionInfo?> CreateSessionAsync(string paneId, int cols, int rows, string? workingDirectory = null, string? command = null)
+    public static string FormatDaemonLogLine(
+        DateTimeOffset timestamp,
+        string component,
+        string eventName,
+        string? paneId,
+        string? message,
+        IReadOnlyDictionary<string, object?>? fields = null)
+    {
+        var parts = new List<string>
+        {
+            $"ts={FormatLogValue(timestamp.ToString("O", CultureInfo.InvariantCulture))}",
+            $"component={FormatLogValue(component)}",
+            $"event={FormatLogValue(eventName)}",
+            $"paneId={FormatLogValue(paneId)}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(message))
+            parts.Add($"message={FormatLogValue(message)}");
+
+        if (fields != null)
+        {
+            foreach (var (key, value) in fields.OrderBy(kvp => kvp.Key, StringComparer.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+
+                parts.Add($"{key}={FormatLogValue(Convert.ToString(value, CultureInfo.InvariantCulture))}");
+            }
+        }
+
+        return string.Join(' ', parts);
+    }
+
+    private static string FormatLogValue(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "-";
+
+        var safe = value.All(c => char.IsLetterOrDigit(c) || c is '.' or '_' or '-' or ':' or '+' or '/' or '\\');
+        if (safe)
+            return value;
+
+        return "\"" + value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal)
+            .Replace("\r", "\\r", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
+    }
+
+    public async Task<DaemonSessionInfo?> CreateSessionAsync(
+        string paneId,
+        int cols,
+        int rows,
+        string? workingDirectory = null,
+        string? command = null,
+        string? workspaceId = null)
     {
         var response = await SendRequestAsync(new DaemonRequest
         {
@@ -375,6 +508,7 @@ public sealed class DaemonClient : IDisposable
             PaneId = paneId,
             Cols = cols,
             Rows = rows,
+            WorkspaceId = workspaceId,
             WorkingDirectory = workingDirectory,
             Command = command,
         });

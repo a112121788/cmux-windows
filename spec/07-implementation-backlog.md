@@ -10,6 +10,7 @@
 
 ## 0. 通用约束
 
+- 产品方向调整为 **SuperTerminal**：优先服务高强度终端、多项目分屏、浏览器预览、脚本化控制、会话恢复与 Windows 原生集成；不再规划专用 AI 运行时 / 外部工具适配器。
 - 任何 backlog 落地前必须先在 `spec/` 中补齐协议 / 数据结构 / UI 行为描述。
 - 复杂功能必须拆成 Core 层 PR、UI 层 PR、CLI/API 层 PR、测试/文档 PR。
 - 同一个 backlog 不应同时跨 2 个里程碑；如发现跨里程碑，先拆。
@@ -47,7 +48,7 @@
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M0-C-01` | 守护进程日志字段标准化：`component/event/paneId/ts` | `DaemonClient.cs`、`DaemonPipeServer.cs` | 单次 attach 可被 grep 串起来 |
+| `M0-C-01` | `[x]` 守护进程日志字段标准化：`component/event/paneId/ts` | `DaemonClient.cs`、`DaemonPipeServer.cs` | 单次 attach 可被 grep 串起来 |
 
 ### 包 D：文档
 
@@ -80,8 +81,8 @@
 | `M1-B-02` | Workspace 拖拽重排 | `MainWindow.xaml.cs`、`WorkspaceSidebarItem.xaml.cs` | 拖动后顺序持久化 |
 | `M1-B-03` | 拖入文件 / 图片到终端 | `Controls/TerminalControl.cs` | 输出正确 quoted path |
 | `M1-B-04` | Workspace 右键菜单（重命名 / 关闭 / 复制 ID） | `MainWindow.xaml.cs` | 三项操作可用 |
-| `M1-B-05` | Close active tab 按钮常显 | `Controls/SurfaceTabBar.xaml` | 视觉对比 macOS 截图 |
-| `M1-B-06` | 设置面板按"外观 / 终端 / 行为 / 集合 / Agent / 高级"重排 | `Views/SettingsWindow.xaml` | 新增“自定义命令”页 |
+| `M1-B-05` | `[x]` Close active tab 按钮常显 | `Controls/SurfaceTabBar.xaml` | 视觉对比 macOS 截图 |
+| `M1-B-06` | 设置面板按"外观 / 终端 / 行为 / 键盘 / 高级"重排 | `Views/SettingsWindow.xaml` | 新增“自定义命令”页 |
 
 ### 包 C：`ecode.json` 基础
 
@@ -91,7 +92,7 @@
 | `M1-C-02` | `[x]` `EcodeJsonService` 解析（路径搜索 / 全局本地合并 / schema 错误） | `ECode.Core/Services/EcodeJsonService.cs` | 含 `MergesLocalOverGlobal`、`InvalidSchema_ReturnsDiagnostic`、JSONC 测试 |
 | `M1-C-03` | `[x]` CommandPalette 接入 custom commands | `Controls/CommandPalette.xaml.cs`、`Views/MainWindow.xaml.cs` | 命令出现在面板，keywords/action id 可搜索 |
 | `M1-C-04` | `[x]` `currentTerminal` / `newTabInCurrentPane` 目标执行 | `Views/MainWindow.xaml.cs` | 含 `confirm` 弹窗路径；执行时记录命令日志 |
-| `M1-C-05` | CLI `ecode reload-config` + `Ctrl+Shift+,` | `ECode.Cli/Program.cs`、`MainWindow.xaml.cs` | 重载后命令面板刷新 |
+| `M1-C-05` | `[x]` CLI `ecode reload-config` + `Ctrl+Shift+,` | `ECode.Cli/Program.cs`、`MainWindow.xaml.cs` | 重载后命令面板刷新 |
 
 ---
 
@@ -101,33 +102,25 @@
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M2-A-01` | `ResumeBinding` DTO + JSON | `ECode.Core/Models/ResumeBinding.cs` | roundtrip 测试 |
-| `M2-A-02` | `ResumeBindingService`（Load/Save/Add/Remove/FindForSurface/TrustPrefix） | `ECode.Core/Services/ResumeBindingService.cs` | 覆盖所有 public method |
-| `M2-A-03` | 敏感环境剔除（TOKEN / PASSWORD / SECRET / API_KEY 等） | 同上 | `DropsSensitiveEnv` 测试通过 |
-| `M2-A-04` | `ECODE_WORKSPACE_ID` 启动注入 | `TerminalProcess.cs` | `GetEnvironmentVariable("ECODE_WORKSPACE_ID")` 非空 |
+| `M2-A-01` | `[x]` `ResumeBinding` DTO + JSON | `ECode.Core/Models/ResumeBinding.cs` | roundtrip 测试 |
+| `M2-A-02` | `[x]` `ResumeBindingService`（Load/Save/Add/SetForPane/Remove/RemoveForPane/FindForSurface/TrustPrefix） | `ECode.Core/Services/ResumeBindingService.cs` | 覆盖所有 public method |
+| `M2-A-03` | `[x]` 敏感环境剔除（TOKEN / PASSWORD / SECRET / API_KEY 等） | 同上 | `DropsSensitiveEnv` 测试通过 |
+| `M2-A-04` | `[x]` `ECODE_WORKSPACE_ID` 启动注入 | `TerminalProcess.cs` | 本地与 daemon shell 启动环境均注入 workspace id |
 
 ### 包 B：UI 与开关
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
 | `M2-B-01` | 恢复确认 UI（未信任 binding 提示条） | `Controls/SplitPaneContainer.cs` 或 `TerminalControl.cs` | 红框 + “可恢复” 按钮 |
-| `M2-B-02` | `AutoResumeAgentSessions` 设置项 | `ECodeSettings.cs`、`SettingsWindow.xaml` | 关闭后所有 agent resume 不自动执行 |
-| `M2-B-03` | 进程检测（tasklist 解析 tmux） | `ECode.Core/Services/ResumeProcessDetector.cs` | 单元测试：含/不含 tmux 路径 |
+| `M2-B-02` | 自动恢复设置项（全局开关 + 每条 binding 显式信任） | `ECodeSettings.cs`、`SettingsWindow.xaml` | 关闭后所有 resume binding 均不自动执行 |
+| `M2-B-03` | 进程检测（tasklist 解析 tmux / shell 子进程） | `ECode.Core/Services/ResumeProcessDetector.cs` | 单元测试：含/不含 tmux 与 shell 路径 |
 
 ### 包 C：CLI
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M2-C-01` | CLI `surface resume {set,show,clear}` | `ECode.Cli/Program.cs`、`MainViewModel.cs` | contract 测试通过 |
+| `M2-C-01` | `[x]` CLI `surface resume {set,show,clear}` | `ECode.Cli/Program.cs`、`MainViewModel.cs` | build + ResumeBinding service 测试通过 |
 | `M2-C-02` | CLI `restore-session` / `Ctrl+Shift+O` 入口 | `MainWindow.xaml.cs` | UI 入口可用 |
-
-### 包 D：Agent hook 预留
-
-| ID | 标题 | 关联文件 | 验收 |
-|---|---|---|---|
-| `M2-D-01` | `ResumeBinding.Kind` 增加 `agent`，并预留 Codex/Claude/OpenCode session id 字段 | `ResumeBinding.cs`、`AgentConversationStoreService.cs` | 数据结构扩展；无业务实现 |
-
----
 
 ## M3 - 浏览器面板基础
 
@@ -135,25 +128,25 @@
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M3-A-01` | `SurfaceKind { Terminal, Browser }` | `Models/Surface.cs` | 旧 `session.json` 默认 Terminal |
-| `M3-A-02` | `SessionState` 新增 `kind/browserUrl/browserTitle/browserHistory` | `Models/SessionState.cs`、`SessionPersistenceService.cs` | 重启后 URL 恢复 |
+| `M3-A-01` | `[x]` `SurfaceKind { Terminal, Browser }` | `Models/Surface.cs` | 旧 `session.json` 默认 Terminal |
+| `M3-A-02` | `[x]` `SessionState` 新增 `kind/browserUrl/browserTitle/browserHistory` | `Models/SessionState.cs`、`SessionPersistenceService.cs` | Browser metadata roundtrip 测试通过 |
 
 ### 包 B：UI
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M3-B-01` | `BrowserPaneViewModel` | `src/ECode/ViewModels/BrowserPaneViewModel.cs` | URL / Title / Loading / CanGoBack 等属性变更广播 |
-| `M3-B-02` | `BrowserControl` 升级（地址栏、back/forward/reload/devtools） | `Controls/BrowserControl.xaml(.cs)` | 视觉与 macOS 截图接近 |
-| `M3-B-03` | `SplitPaneContainer` 支持 browser leaf | `Controls/SplitPaneContainer.cs` | `BuildLeaf` 分支渲染 BrowserControl |
-| `M3-B-04` | WebView2 缺失时的友好提示 | `BrowserControl.xaml.cs` | 不崩溃，提示下载链接 |
+| `M3-B-01` | `[x]` `BrowserPaneViewModel` | `src/ECode/ViewModels/BrowserPaneViewModel.cs` | URL / Title / Loading / CanGoBack 等属性变更广播 |
+| `M3-B-02` | `[x]` `BrowserControl` 升级（地址栏、back/forward/reload/stop/devtools） | `Controls/BrowserControl.xaml(.cs)` | 工具栏状态与加载进度可用 |
+| `M3-B-03` | `[x]` `SplitPaneContainer` 支持 browser leaf | `Controls/SplitPaneContainer.cs` | `BuildLeaf` 分支渲染 BrowserControl |
+| `M3-B-04` | `[x]` WebView2 缺失时的友好提示 | `BrowserControl.xaml.cs` | 不崩溃，提示下载链接 |
 
 ### 包 C：CLI / ecode.json
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M3-C-01` | `ecode browser open|open-split|new <url>` | `ECode.Cli/Program.cs`、`MainViewModel.cs` | contract 测试 |
-| `M3-C-02` | `.ecode/ecode.json` workspace 中 `type:"browser"` surface 解析 | `EcodeJsonService.cs` | 在 layout 中可创建 |
-| `M3-C-03` | v1 IPC `BROWSER.OPEN_SPLIT` 文本参数 | `MainViewModel.HandlePipeCommand` | 端到端 smoke 通过 |
+| `M3-C-01` | `[x]` `ecode browser open|open-split|new <url>` | `ECode.Cli/Program.cs`、`MainViewModel.cs` | build 通过；open-split v1 回退为 new-surface |
+| `M3-C-02` | `[x]` `.ecode/ecode.json` workspace 中 `type:"browser"` surface 解析 | `EcodeJsonService.cs`、`MainWindow.xaml.cs` | 在 layout 中可创建 |
+| `M3-C-03` | `[x]` v1 IPC `BROWSER.OPEN_SPLIT` 文本参数 | `MainViewModel.HandlePipeCommand` | v1 响应含 `fallbackMode:"new-surface"` |
 
 ---
 
@@ -222,17 +215,17 @@
 
 ---
 
-## M6 - Hooks、集成、安装与更新
+## M6 - 系统集成、安装与更新
 
-### 包 A：Hooks
+### 包 A：Shell / CLI 集成
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M6-A-01` | `ecode hooks setup` 框架（写注册表 / wrapper / PowerShell profile） | `ECode.Cli/Commands/HooksSetup.cs` | uninstall 可逆 |
-| `M6-A-02` | Claude Code adapter | 同上 | setup 后通知触发 |
-| `M6-A-03` | Codex adapter | 同上 | setup 后通知触发 |
-| `M6-A-04` | OpenCode adapter | 同上 | setup 后通知触发 |
-| `M6-A-05` | `ecode hooks status` / `ecode hooks uninstall <agent>` | 同上 | diff 输出可读 |
+| `M6-A-01` | PATH / shell profile setup（PowerShell、cmd） | `ECode.Cli/Commands/ShellSetup.cs` | install / uninstall 可逆 |
+| `M6-A-02` | PowerShell completion | `scripts/completions/ecode.ps1` | `ecode <Tab>` 可补全命令与 refs |
+| `M6-A-03` | Windows Terminal profile 导入 | `ECode.Cli/Commands/ProfileImport.cs` | 可导入配色 / 字体 / shell profile |
+| `M6-A-04` | `ecode doctor` 环境诊断 | `ECode.Cli/Program.cs` | 输出 ConPTY / WebView2 / PATH / daemon 状态 |
+| `M6-A-05` | `ecode setup status` / `ecode setup uninstall` | 同上 | diff 输出可读，卸载清理 PATH/profile 变更 |
 
 ### 包 B：安装与更新
 
@@ -297,12 +290,17 @@
 1. `M0-A-01` + `M0-A-02`（建立 CI 安全网）
 2. `M0-A-03`（版本号统一）
 3. `M0-B-01` ~ `M0-B-05`（核心测试补齐）
-4. `M1-C-01` ~ `M1-C-04`（已完成：`ecode.json` Core + CommandPalette 接入）
-5. `M1-C-05`（CLI `ecode reload-config` + `Ctrl+Shift+,`）
+4. `M1-C-01` ~ `M1-C-05`（已完成：`ecode.json` Core + CommandPalette 接入 + reload config）
+5. `M2-A-01`（已完成：`ResumeBinding` DTO + JSON）
 6. `M1-A-01`（Pane 蓝环，macOS 核心体验首块拼图）
-7. `M2-A-01` ~ `M2-A-03`（ResumeBinding 数据与服务）
-8. `M2-C-01`（CLI `surface resume`）
-9. `M3-A-01` + `M3-A-02`（SurfaceKind + SessionState 扩展）
-10. `M3-C-01` + `M3-B-02`（CLI `browser open` + BrowserControl 升级）
+7. `M2-A-03`（已完成：ResumeBinding 敏感环境剔除）
+8. `M2-C-01`（已完成：CLI `surface resume`）
+9. `M2-A-04`（已完成：`ECODE_WORKSPACE_ID` 启动注入）
+10. `M3-A-01` + `M3-A-02`（已完成：SurfaceKind + SessionState 扩展）
+11. `M3-B-01`（已完成：BrowserPaneViewModel 状态层）
+12. `M3-B-03` + `M3-B-04`（已完成：Browser leaf 渲染 + WebView2 缺失提示）
+13. `M3-C-01` + `M3-C-03`（已完成：CLI/IPC browser open）
+14. `M3-B-02`（已完成：BrowserControl 工具栏升级）
+15. `M3-C-02`（ecode.json browser surface 解析）
 
-> 进入 M4 / M5 前必须先冻结 v1 CLI 行为并完成 v1 contract 测试固化，避免 v2 协议破坏现有 agent 集成。
+> 进入 M4 / M5 前必须先冻结 v1 CLI 行为并完成 v1 contract 测试固化，避免 v2 协议破坏现有自动化脚本。

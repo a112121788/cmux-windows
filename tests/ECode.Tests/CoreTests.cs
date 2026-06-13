@@ -161,6 +161,7 @@ public class DaemonMessageRoundTripTests
             PaneId = "pane-1",
             Cols = 120,
             Rows = 40,
+            WorkspaceId = "workspace-1",
             WorkingDirectory = @"C:\repo",
             Command = "pwsh",
             Data = "hello",
@@ -172,6 +173,7 @@ public class DaemonMessageRoundTripTests
         roundTripped.PaneId.Should().Be("pane-1");
         roundTripped.Cols.Should().Be(120);
         roundTripped.Rows.Should().Be(40);
+        roundTripped.WorkspaceId.Should().Be("workspace-1");
         roundTripped.WorkingDirectory.Should().Be(@"C:\repo");
         roundTripped.Command.Should().Be("pwsh");
         roundTripped.Data.Should().Be("hello");
@@ -203,7 +205,7 @@ public class DaemonMessageRoundTripTests
             Cols = 100,
             Rows = 30,
             WorkingDirectory = @"D:\work",
-            Title = "agent",
+            Title = "build",
             IsRunning = true,
             IsExisting = true,
         };
@@ -214,7 +216,7 @@ public class DaemonMessageRoundTripTests
         roundTripped.Cols.Should().Be(100);
         roundTripped.Rows.Should().Be(30);
         roundTripped.WorkingDirectory.Should().Be(@"D:\work");
-        roundTripped.Title.Should().Be("agent");
+        roundTripped.Title.Should().Be("build");
         roundTripped.IsRunning.Should().BeTrue();
         roundTripped.IsExisting.Should().BeTrue();
     }
@@ -246,6 +248,486 @@ public class DaemonMessageRoundTripTests
 }
 
 /// <summary>
+/// 终端环境变量测试 - 验证启动 shell 前注入 ecode 上下文变量。
+/// </summary>
+public class TerminalEnvironmentVariablesTests
+{
+    [Fact]
+    public void ForWorkspace_AddsEcodeWorkspaceId()
+    {
+        var environment = TerminalEnvironmentVariables.ForWorkspace("workspace-1");
+
+        environment.Should().ContainKey(TerminalEnvironmentVariables.WorkspaceId)
+            .WhoseValue.Should().Be("workspace-1");
+    }
+
+    [Fact]
+    public void MergeWithCurrent_OverridesExistingValuesAndSkipsInvalidNames()
+    {
+        var merged = TerminalEnvironmentVariables.MergeWithCurrent(new Dictionary<string, string>
+        {
+            ["PATH"] = "test-path",
+            [TerminalEnvironmentVariables.WorkspaceId] = "workspace-1",
+            ["BAD=NAME"] = "ignored",
+            [""] = "ignored",
+        });
+
+        merged["PATH"].Should().Be("test-path");
+        merged[TerminalEnvironmentVariables.WorkspaceId].Should().Be("workspace-1");
+        merged.Should().NotContainKey("BAD=NAME");
+        merged.Should().NotContainKey("");
+    }
+}
+
+/// <summary>
+/// Daemon 日志格式测试 - 验证日志行包含稳定的结构化字段，便于 grep 串联 attach 流程
+/// </summary>
+public class DaemonLogFormatTests
+{
+    [Fact]
+    public void FormatDaemonLogLine_IncludesRequiredFieldsAndEscapesValues()
+    {
+        var timestamp = new DateTimeOffset(2026, 6, 14, 5, 30, 0, TimeSpan.FromHours(8));
+
+        var line = DaemonClient.FormatDaemonLogLine(
+            timestamp,
+            "daemon-client",
+            "request.send",
+            "pane-1",
+            "Sending daemon request",
+            new Dictionary<string, object?>
+            {
+                ["requestType"] = DaemonMessageTypes.SessionCreate,
+                ["path"] = @"C:\Users\mac\my repo",
+            });
+
+        line.Should().Contain("ts=2026-06-14T05:30:00.0000000+08:00");
+        line.Should().Contain("component=daemon-client");
+        line.Should().Contain("event=request.send");
+        line.Should().Contain("paneId=pane-1");
+        line.Should().Contain("message=\"Sending daemon request\"");
+        line.Should().Contain("requestType=SESSION_CREATE");
+        line.Should().Contain("path=\"C:\\\\Users\\\\mac\\\\my repo\"");
+    }
+}
+
+/// <summary>
+/// ResumeBinding DTO 测试 - 验证 resume.json 根对象与 binding 字段可稳定 JSON 往返
+/// </summary>
+public class ResumeBindingDtoTests
+{
+    [Fact]
+    public void ResumeBindingFile_RoundTripsJson()
+    {
+        var createdAt = new DateTime(2026, 6, 14, 1, 2, 3, DateTimeKind.Utc);
+        var updatedAt = new DateTime(2026, 6, 14, 4, 5, 6, DateTimeKind.Utc);
+        var file = new ResumeBindingFile
+        {
+            Version = 1,
+            Bindings =
+            [
+                new ResumeBinding
+                {
+                    Id = "binding-1",
+                    WorkspaceId = "workspace-1",
+                    SurfaceId = "surface-1",
+                    PaneId = "pane-1",
+                    Kind = ResumeBindingKinds.Tmux,
+                    Checkpoint = "work",
+                    Shell = "tmux attach -t work",
+                    WorkingDirectory = @"C:\repo",
+                    Environment = new Dictionary<string, string>
+                    {
+                        ["SAFE_KEY"] = "value",
+                    },
+                    Trusted = true,
+                    TrustReason = "user-approved-prefix",
+                    ApprovedPrefix = "tmux attach",
+                    CreatedAtUtc = createdAt,
+                    UpdatedAtUtc = updatedAt,
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(file);
+        var roundTripped = JsonSerializer.Deserialize<ResumeBindingFile>(json);
+
+        roundTripped.Should().NotBeNull();
+        roundTripped!.Version.Should().Be(1);
+        roundTripped.Bindings.Should().ContainSingle();
+
+        var binding = roundTripped.Bindings.Single();
+        binding.Id.Should().Be("binding-1");
+        binding.WorkspaceId.Should().Be("workspace-1");
+        binding.SurfaceId.Should().Be("surface-1");
+        binding.PaneId.Should().Be("pane-1");
+        binding.Kind.Should().Be(ResumeBindingKinds.Tmux);
+        binding.Checkpoint.Should().Be("work");
+        binding.Shell.Should().Be("tmux attach -t work");
+        binding.WorkingDirectory.Should().Be(@"C:\repo");
+        binding.Environment.Should().ContainKey("SAFE_KEY").WhoseValue.Should().Be("value");
+        binding.Trusted.Should().BeTrue();
+        binding.TrustReason.Should().Be("user-approved-prefix");
+        binding.ApprovedPrefix.Should().Be("tmux attach");
+        binding.CreatedAtUtc.Should().Be(createdAt);
+        binding.UpdatedAtUtc.Should().Be(updatedAt);
+    }
+
+    [Fact]
+    public void ResumeBinding_DefaultsToVersionOneAndCustomKind()
+    {
+        var file = new ResumeBindingFile();
+        var binding = new ResumeBinding();
+
+        file.Version.Should().Be(1);
+        file.Bindings.Should().BeEmpty();
+        binding.Id.Should().NotBeNullOrWhiteSpace();
+        binding.Kind.Should().Be(ResumeBindingKinds.Custom);
+        binding.Environment.Should().BeEmpty();
+        binding.CreatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+        binding.UpdatedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+}
+
+/// <summary>
+/// ResumeBindingService 测试 - 覆盖加载、保存、增删、按 Surface 查询和信任前缀更新
+/// </summary>
+public class ResumeBindingServiceTests
+{
+    [Fact]
+    public void Load_WhenFileMissing_ReturnsEmptyVersionOneFile()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+
+        var file = service.Load();
+
+        file.Version.Should().Be(1);
+        file.Bindings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SaveAndLoad_RoundTripsBindings()
+    {
+        using var temp = TempDirectory.Create();
+        var path = Path.Combine(temp.Path, "resume.json");
+        var service = new ResumeBindingService(path);
+        var file = new ResumeBindingFile
+        {
+            Bindings =
+            [
+                CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1"),
+            ],
+        };
+
+        service.Save(file);
+        var loaded = service.Load();
+
+        loaded.Bindings.Should().ContainSingle();
+        loaded.Bindings.Single().Id.Should().Be("binding-1");
+        loaded.Bindings.Single().Shell.Should().Be("tmux attach -t work");
+    }
+
+    [Fact]
+    public void Add_InsertsAndReplacesById()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        var binding = CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1");
+
+        service.Add(binding);
+        binding.Shell = "tmux attach -t updated";
+        service.Add(binding);
+
+        var loaded = service.Load();
+        loaded.Bindings.Should().ContainSingle();
+        loaded.Bindings.Single().Shell.Should().Be("tmux attach -t updated");
+        loaded.Bindings.Single().UpdatedAtUtc.Should().BeAfter(loaded.Bindings.Single().CreatedAtUtc.AddTicks(-1));
+    }
+
+    [Fact]
+    public void SetForPane_ReplacesExistingPaneBindings()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("old-1", "workspace-1", "surface-1", "pane-1"));
+        service.Add(CreateResumeBinding("old-2", "workspace-1", "surface-1", "pane-1", shell: "tmux attach -t old"));
+        service.Add(CreateResumeBinding("other-pane", "workspace-1", "surface-1", "pane-2"));
+
+        var updated = service.SetForPane(CreateResumeBinding("", "workspace-1", "surface-1", "pane-1", shell: "tmux attach -t new"));
+
+        updated.Id.Should().NotBeNullOrWhiteSpace();
+        var loaded = service.Load().Bindings;
+        loaded.Where(b => b.PaneId == "pane-1").Should().ContainSingle()
+            .Which.Shell.Should().Be("tmux attach -t new");
+        loaded.Should().Contain(b => b.Id == "other-pane");
+    }
+
+    [Fact]
+    public void Remove_DeletesBindingById()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1"));
+        service.Add(CreateResumeBinding("binding-2", "workspace-1", "surface-1", "pane-2"));
+
+        var removed = service.Remove("binding-1");
+
+        removed.Should().BeTrue();
+        service.Load().Bindings.Select(b => b.Id).Should().Equal("binding-2");
+        service.Remove("missing").Should().BeFalse();
+    }
+
+    [Fact]
+    public void RemoveForPane_DeletesOnlyMatchingPane()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("target-1", "workspace-1", "surface-1", "pane-1"));
+        service.Add(CreateResumeBinding("target-2", "workspace-1", "surface-1", "pane-1", shell: "tmux attach -t work"));
+        service.Add(CreateResumeBinding("other-pane", "workspace-1", "surface-1", "pane-2"));
+        service.Add(CreateResumeBinding("other-surface", "workspace-1", "surface-2", "pane-1"));
+
+        var removed = service.RemoveForPane("workspace-1", "surface-1", "pane-1");
+
+        removed.Should().Be(2);
+        service.Load().Bindings.Select(b => b.Id).Should().BeEquivalentTo("other-pane", "other-surface");
+        service.RemoveForPane("workspace-1", "surface-1", "missing").Should().Be(0);
+    }
+
+    [Fact]
+    public void FindForSurface_FiltersByWorkspaceAndSurface()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("target-1", "workspace-1", "surface-1", "pane-1"));
+        service.Add(CreateResumeBinding("other-surface", "workspace-1", "surface-2", "pane-2"));
+        service.Add(CreateResumeBinding("other-workspace", "workspace-2", "surface-1", "pane-3"));
+
+        var matches = service.FindForSurface("workspace-1", "surface-1");
+
+        matches.Select(b => b.Id).Should().Equal("target-1");
+    }
+
+    [Fact]
+    public void TrustPrefix_OnlyTrustsMatchingSurfaceCwdAndPrefix()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("target", "workspace-1", "surface-1", "pane-1", @"C:\repo", "tmux attach -t work"));
+        service.Add(CreateResumeBinding("wrong-prefix", "workspace-1", "surface-1", "pane-2", @"C:\repo", "npm test"));
+        service.Add(CreateResumeBinding("wrong-cwd", "workspace-1", "surface-1", "pane-3", @"C:\other", "tmux attach -t work"));
+        service.Add(CreateResumeBinding("wrong-surface", "workspace-1", "surface-2", "pane-4", @"C:\repo", "tmux attach -t work"));
+
+        var trusted = service.TrustPrefix("workspace-1", "surface-1", "tmux attach", @"C:\repo");
+
+        trusted.Should().Be(1);
+        var bindings = service.Load().Bindings.ToDictionary(b => b.Id);
+        bindings["target"].Trusted.Should().BeTrue();
+        bindings["target"].TrustReason.Should().Be("user-approved-prefix");
+        bindings["target"].ApprovedPrefix.Should().Be("tmux attach");
+        bindings["wrong-prefix"].Trusted.Should().BeFalse();
+        bindings["wrong-cwd"].Trusted.Should().BeFalse();
+        bindings["wrong-surface"].Trusted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Save_DropsSensitiveEnv()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        var binding = CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1");
+        binding.Environment = new Dictionary<string, string>
+        {
+            ["PATH"] = @"C:\Windows",
+            ["OPENAI_API_KEY"] = "sk-secret",
+            ["GITHUB_TOKEN"] = "ghp_secret",
+            ["PASSWORD"] = "hunter2",
+            ["MY_SECRET_VALUE"] = "secret",
+            ["AWS_ACCESS_KEY_ID"] = "access",
+            ["TOKEN_CACHE_DISABLED"] = "true",
+            ["SAFE_KEY"] = "safe",
+        };
+
+        service.Save(new ResumeBindingFile { Bindings = [binding] });
+
+        var loadedEnv = service.Load().Bindings.Single().Environment;
+        loadedEnv.Keys.Should().BeEquivalentTo("PATH", "SAFE_KEY");
+        loadedEnv["PATH"].Should().Be(@"C:\Windows");
+        loadedEnv["SAFE_KEY"].Should().Be("safe");
+    }
+
+    [Fact]
+    public void Add_DropsSensitiveEnvBeforePersisting()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        var binding = CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1");
+        binding.Environment = new Dictionary<string, string>
+        {
+            ["SAFE_KEY"] = "safe",
+            ["API_KEY"] = "secret",
+        };
+
+        service.Add(binding);
+
+        var loadedEnv = service.Load().Bindings.Single().Environment;
+        loadedEnv.Should().ContainKey("SAFE_KEY").WhoseValue.Should().Be("safe");
+        loadedEnv.Should().NotContainKey("API_KEY");
+    }
+
+    private static ResumeBinding CreateResumeBinding(
+        string id,
+        string workspaceId,
+        string surfaceId,
+        string paneId,
+        string workingDirectory = @"C:\repo",
+        string shell = "tmux attach -t work") => new()
+    {
+        Id = id,
+        WorkspaceId = workspaceId,
+        SurfaceId = surfaceId,
+        PaneId = paneId,
+        Kind = ResumeBindingKinds.Tmux,
+        Shell = shell,
+        WorkingDirectory = workingDirectory,
+        CreatedAtUtc = new DateTime(2025, 1, 1, 1, 0, 0, DateTimeKind.Utc),
+        UpdatedAtUtc = new DateTime(2025, 1, 1, 1, 0, 0, DateTimeKind.Utc),
+    };
+
+    private sealed class TempDirectory : IDisposable
+    {
+        public string Path { get; } = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            "ecode-resume-tests-" + Guid.NewGuid().ToString("N"));
+
+        private TempDirectory()
+        {
+            Directory.CreateDirectory(Path);
+        }
+
+        public static TempDirectory Create() => new();
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+                Directory.Delete(Path, recursive: true);
+        }
+    }
+}
+
+/// <summary>
+/// 会话持久化测试 - 验证 SurfaceKind 与 Browser metadata 的兼容存储。
+/// </summary>
+public class SessionPersistenceServiceTests
+{
+    [Fact]
+    public void BuildState_PersistsBrowserSurfaceMetadata()
+    {
+        var workspace = new Workspace
+        {
+            Id = "workspace-1",
+            Name = "Workspace",
+        };
+        var surface = new Surface
+        {
+            Id = "surface-1",
+            Name = "Docs",
+            Kind = SurfaceKind.Browser,
+            BrowserUrl = "https://example.com/docs",
+            BrowserTitle = "Docs",
+            BrowserHistory = ["https://example.com", "https://example.com/docs"],
+        };
+        workspace.Surfaces.Add(surface);
+        workspace.SelectedSurface = surface;
+
+        var state = SessionPersistenceService.BuildState(
+            [workspace],
+            selectedWorkspaceIndex: 0,
+            windowX: 1,
+            windowY: 2,
+            windowWidth: 1200,
+            windowHeight: 800,
+            isMaximized: false,
+            sidebarWidth: 280,
+            sidebarVisible: true,
+            compactSidebar: false);
+
+        var persisted = state.Workspaces.Single().Surfaces.Single();
+        persisted.Kind.Should().Be(SurfaceKind.Browser);
+        persisted.BrowserUrl.Should().Be("https://example.com/docs");
+        persisted.BrowserTitle.Should().Be("Docs");
+        persisted.BrowserHistory.Should().Equal("https://example.com", "https://example.com/docs");
+    }
+
+    [Fact]
+    public void SurfaceState_RoundTripsBrowserMetadata()
+    {
+        var state = new SessionState
+        {
+            Workspaces =
+            [
+                new WorkspaceState
+                {
+                    Id = "workspace-1",
+                    Name = "Workspace",
+                    Surfaces =
+                    [
+                        new SurfaceState
+                        {
+                            Id = "surface-1",
+                            Name = "Browser",
+                            Kind = SurfaceKind.Browser,
+                            BrowserUrl = "http://localhost:5173",
+                            BrowserTitle = "Local App",
+                            BrowserHistory = ["http://localhost:5173", "http://localhost:5173/dashboard"],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state);
+        var roundTripped = JsonSerializer.Deserialize<SessionState>(json);
+
+        var surface = roundTripped!.Workspaces.Single().Surfaces.Single();
+        surface.Kind.Should().Be(SurfaceKind.Browser);
+        surface.BrowserUrl.Should().Be("http://localhost:5173");
+        surface.BrowserTitle.Should().Be("Local App");
+        surface.BrowserHistory.Should().Equal("http://localhost:5173", "http://localhost:5173/dashboard");
+        json.Should().Contain("\"kind\":\"Browser\"");
+    }
+
+    [Fact]
+    public void SurfaceState_WhenKindMissing_DefaultsToTerminal()
+    {
+        var json = """
+            {
+              "version": 1,
+              "workspaces": [
+                {
+                  "id": "workspace-1",
+                  "name": "Workspace",
+                  "surfaces": [
+                    {
+                      "id": "surface-1",
+                      "name": "Terminal",
+                      "rootNode": { "isLeaf": true, "paneId": "pane-1" }
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        var state = JsonSerializer.Deserialize<SessionState>(json);
+
+        state!.Workspaces.Single().Surfaces.Single().Kind.Should().Be(SurfaceKind.Terminal);
+        state.Workspaces.Single().Surfaces.Single().BrowserHistory.Should().BeEmpty();
+    }
+}
+
+/// <summary>
 /// ecode.json 配置服务测试 - 验证全局配置与本地配置的加载、合并、验证和 JSONC 支持
 /// </summary>
 public class EcodeJsonServiceTests
@@ -273,10 +755,10 @@ public class EcodeJsonServiceTests
                 }
               ],
               "actions": {
-                "codex": {
+                "devServer": {
                   "type": "command",
-                  "title": "Codex",
-                  "command": "codex",
+                  "title": "Dev Server",
+                  "command": "npm run dev",
                   "target": "currentTerminal"
                 }
               }
@@ -295,10 +777,10 @@ public class EcodeJsonServiceTests
                 }
               ],
               "actions": {
-                "codex": {
+                "devServer": {
                   "type": "command",
-                  "title": "Codex Local",
-                  "command": "codex --full-auto",
+                  "title": "Dev Server Local",
+                  "command": "npm run dev -- --host 0.0.0.0",
                   "target": "newTabInCurrentPane",
                   "palette": true,
                   "confirm": true
@@ -316,8 +798,8 @@ public class EcodeJsonServiceTests
         result.Config.Commands.Single(c => c.Name == "Run Tests").Confirm.Should().BeTrue();
         result.Config.Commands.Single(c => c.Name == "Run Tests").Keywords.Should().Equal("test", "verify");
         result.Config.Commands.Single(c => c.Name == "Format").Command.Should().Be("dotnet format");
-        result.Config.Actions["codex"].Title.Should().Be("Codex Local");
-        result.Config.Actions["codex"].Target.Should().Be(EcodeActionTargets.NewTabInCurrentPane);
+        result.Config.Actions["devServer"].Title.Should().Be("Dev Server Local");
+        result.Config.Actions["devServer"].Target.Should().Be(EcodeActionTargets.NewTabInCurrentPane);
     }
 
     [Fact]
@@ -375,6 +857,95 @@ public class EcodeJsonServiceTests
         result.Diagnostics.Should().BeEmpty();
         result.Config.Commands.Single().Name.Should().Be("Build");
         result.Config.Commands.Single().Command.Should().Be("dotnet build");
+    }
+
+    [Fact]
+    public void Load_ParsesWorkspaceBrowserSurface()
+    {
+        using var temp = TempDirectory.Create();
+        var path = Path.Combine(temp.Path, "ecode.json");
+        File.WriteAllText(path, """
+            {
+              "workspace": {
+                "selectedSurfaceIndex": 1,
+                "surfaces": [
+                  { "type": "terminal", "name": "Shell" },
+                  { "type": "browser", "name": "Docs", "url": " https://example.com/docs " }
+                ]
+              }
+            }
+            """);
+
+        var result = new EcodeJsonService().LoadFromFiles([path]);
+
+        result.Diagnostics.Should().BeEmpty();
+        result.Config.Workspace.Should().NotBeNull();
+        result.Config.Workspace!.SelectedSurfaceIndex.Should().Be(1);
+        result.Config.Workspace.Surfaces.Should().HaveCount(2);
+        result.Config.Workspace.Surfaces[0].Type.Should().Be(EcodeSurfaceTypes.Terminal);
+        result.Config.Workspace.Surfaces[0].Name.Should().Be("Shell");
+        result.Config.Workspace.Surfaces[1].Type.Should().Be(EcodeSurfaceTypes.Browser);
+        result.Config.Workspace.Surfaces[1].Name.Should().Be("Docs");
+        result.Config.Workspace.Surfaces[1].Url.Should().Be("https://example.com/docs");
+    }
+
+    [Fact]
+    public void Load_LocalWorkspaceOverridesGlobalWorkspace()
+    {
+        using var temp = TempDirectory.Create();
+        var workspaceDir = Path.Combine(temp.Path, "workspace");
+        var localDir = Path.Combine(workspaceDir, ".ecode");
+        Directory.CreateDirectory(localDir);
+
+        var globalPath = Path.Combine(temp.Path, "global.json");
+        File.WriteAllText(globalPath, """
+            {
+              "workspace": {
+                "surfaces": [
+                  { "type": "browser", "name": "Global Docs", "url": "https://global.example" }
+                ]
+              }
+            }
+            """);
+
+        File.WriteAllText(Path.Combine(localDir, "ecode.json"), """
+            {
+              "workspace": {
+                "surfaces": [
+                  { "type": "browser", "name": "Local Docs", "url": "https://local.example" }
+                ]
+              }
+            }
+            """);
+
+        var result = new EcodeJsonService().Load(workspaceDir, globalPath);
+
+        result.Diagnostics.Should().BeEmpty();
+        result.Config.Workspace!.Surfaces.Should().ContainSingle();
+        result.Config.Workspace.Surfaces.Single().Name.Should().Be("Local Docs");
+        result.Config.Workspace.Surfaces.Single().Url.Should().Be("https://local.example");
+    }
+
+    [Fact]
+    public void Load_BrowserSurfaceWithoutUrl_ReturnsDiagnostic()
+    {
+        using var temp = TempDirectory.Create();
+        var path = Path.Combine(temp.Path, "ecode.json");
+        File.WriteAllText(path, """
+            {
+              "workspace": {
+                "surfaces": [
+                  { "type": "browser", "name": "Preview" }
+                ]
+              }
+            }
+            """);
+
+        var result = new EcodeJsonService().LoadFromFiles([path]);
+
+        result.HasErrors.Should().BeTrue();
+        result.Diagnostics.Should().Contain(d => d.Severity == EcodeJsonDiagnosticSeverity.Error
+            && d.Message.Contains("workspace.surfaces[0].url", StringComparison.Ordinal));
     }
 
     private sealed class TempDirectory : IDisposable
@@ -540,9 +1111,9 @@ public class VtParserTests
         string? receivedOsc = null;
         parser.OnOscDispatch = osc => receivedOsc = osc;
 
-        parser.Feed("\x1b]777;notify;Claude;Waiting for input\x07");
+        parser.Feed("\x1b]777;notify;Build;Waiting for input\x07");
 
-        receivedOsc.Should().Be("777;notify;Claude;Waiting for input");
+        receivedOsc.Should().Be("777;notify;Build;Waiting for input");
     }
 
     [Fact]
@@ -799,9 +1370,9 @@ public class OscHandlerTests
         string? title = null, body = null;
         handler.NotificationReceived += (t, s, b) => { title = t; body = b; };
 
-        handler.Handle("99;t=Claude Code;b=Waiting for input");
+        handler.Handle("99;t=Build Watcher;b=Waiting for input");
 
-        title.Should().Be("Claude Code");
+        title.Should().Be("Build Watcher");
         body.Should().Be("Waiting for input");
     }
 
@@ -812,9 +1383,9 @@ public class OscHandlerTests
         string? title = null, body = null;
         handler.NotificationReceived += (t, s, b) => { title = t; body = b; };
 
-        handler.Handle("777;notify;Claude;Task completed");
+        handler.Handle("777;notify;Build;Task completed");
 
-        title.Should().Be("Claude");
+        title.Should().Be("Build");
         body.Should().Be("Task completed");
     }
 
@@ -1097,6 +1668,17 @@ public class TerminalColorTests
 /// </summary>
 public class TerminalSelectionTests
 {
+    [Fact]
+    public void StartSelection_WithoutDrag_DoesNotSelectSingleCell()
+    {
+        var selection = new TerminalSelection();
+
+        selection.StartSelection(4, 8);
+
+        selection.HasSelection.Should().BeFalse();
+        selection.IsSelected(4, 8).Should().BeFalse();
+    }
+
     [Fact]
     public void StartAndExtend_CreatesSelection()
     {

@@ -7,6 +7,7 @@ public sealed class EcodeJsonConfig
 {
     public Dictionary<string, EcodeAction> Actions { get; set; } = []; // 可绑定的动作（快捷键/按钮触发）
     public List<EcodeCommand> Commands { get; set; } = []; // 命令面板中的命令列表
+    public EcodeWorkspaceConfig? Workspace { get; set; } // 工作区布局配置
     public EcodeUiConfig? Ui { get; set; }
 }
 
@@ -50,6 +51,22 @@ public sealed class EcodeUiConfig
     public EcodeSurfaceTabBarConfig? SurfaceTabBar { get; set; }
 }
 
+public sealed class EcodeWorkspaceConfig
+{
+    public List<EcodeSurfaceConfig> Surfaces { get; set; } = [];
+
+    public int? SelectedSurfaceIndex { get; set; }
+}
+
+public sealed class EcodeSurfaceConfig
+{
+    public string Type { get; set; } = EcodeSurfaceTypes.Terminal;
+
+    public string? Name { get; set; }
+
+    public string? Url { get; set; }
+}
+
 public sealed class EcodeSurfaceTabBarConfig
 {
     public List<EcodeUiButton> Buttons { get; set; } = [];
@@ -68,6 +85,12 @@ public static class EcodeActionTargets
 {
     public const string CurrentTerminal = "currentTerminal";
     public const string NewTabInCurrentPane = "newTabInCurrentPane";
+}
+
+public static class EcodeSurfaceTypes
+{
+    public const string Terminal = "terminal";
+    public const string Browser = "browser";
 }
 
 public enum EcodeJsonDiagnosticSeverity

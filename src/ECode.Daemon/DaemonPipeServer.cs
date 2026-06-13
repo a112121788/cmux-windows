@@ -56,7 +56,11 @@ public sealed class DaemonPipeServer
     public void Run(CancellationToken ct)
     {
         var legacy = LegacyPipeName;
-        LogDaemon($"[PipeServer] Listening on \\\\.\\pipe\\{PipeName}{(legacy != null ? $" and \\\\.\\pipe\\{legacy}" : string.Empty)}");
+        LogDaemon("daemon-pipe-server", "listen.start", message: "Listening for daemon clients", fields: new Dictionary<string, object?>
+        {
+            ["pipe"] = PipeName,
+            ["legacyPipe"] = legacy,
+        });
 
         // 同时启动两个 Accept 循环：旧管道放后台线程，新管道在主循环。
         if (legacy != null)
@@ -87,9 +91,15 @@ public sealed class DaemonPipeServer
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous);
 
-                LogDaemon($"[PipeServer] Waiting for client connection on '{name}'...");
+                LogDaemon("daemon-pipe-server", "accept.wait", message: "Waiting for client connection", fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                });
                 pipe.WaitForConnection();
-                LogDaemon($"[PipeServer] Client connected on '{name}', spawning handler...");
+                LogDaemon("daemon-pipe-server", "accept.connected", message: "Client connected", fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                });
 
                 var thread = new Thread(() => HandleConnection(pipe, ct))
                 {
@@ -104,7 +114,10 @@ public sealed class DaemonPipeServer
             }
             catch (IOException ex)
             {
-                LogDaemon($"[PipeServer] Pipe error on '{name}': {ex.Message}");
+                LogDaemon("daemon-pipe-server", "accept.io-error", message: ex.Message, fields: new Dictionary<string, object?>
+                {
+                    ["pipe"] = name,
+                });
                 try { Thread.Sleep(100); } catch (ThreadInterruptedException) { break; }
             }
         }
@@ -123,7 +136,11 @@ public sealed class DaemonPipeServer
         Interlocked.Increment(ref _connectedClients);
         _clientChannels[clientId] = writeChannel;
         ClientConnected?.Invoke();
-        LogDaemon($"[PipeServer] Client {clientId} connected (total: {_connectedClients}).");
+        LogDaemon("daemon-pipe-server", "client.connected", message: "Client handler started", fields: new Dictionary<string, object?>
+        {
+            ["clientId"] = clientId,
+            ["connectedClients"] = _connectedClients,
+        });
 
         try
         {
@@ -150,7 +167,11 @@ public sealed class DaemonPipeServer
                 };
                 writerThread.Start();
 
-                LogDaemon($"[PipeServer:{clientId}] Entering read loop (IsConnected={pipe.IsConnected})...");
+                LogDaemon("daemon-pipe-server", "client.read-loop", message: "Entering client read loop", fields: new Dictionary<string, object?>
+                {
+                    ["clientId"] = clientId,
+                    ["isConnected"] = pipe.IsConnected,
+                });
 
                 // 从管道读取原始字节并手动解析行。
                 // 绕开 StreamReader，因为它在读取命名管道时存在问题。
@@ -171,7 +192,10 @@ public sealed class DaemonPipeServer
 
                     if (bytesRead == 0)
                     {
-                        LogDaemon($"[PipeServer:{clientId}] Read returned 0 (EOF)");
+                        LogDaemon("daemon-pipe-server", "client.eof", message: "Read returned EOF", fields: new Dictionary<string, object?>
+                        {
+                            ["clientId"] = clientId,
+                        });
                         break;
                     }
 
@@ -207,7 +231,12 @@ public sealed class DaemonPipeServer
             _clientChannels.TryRemove(clientId, out _);
             Interlocked.Decrement(ref _connectedClients);
             ClientDisconnected?.Invoke();
-            LogDaemon($"[PipeServer] Client {clientId} disconnected (remaining: {_connectedClients}, sessions: {_sessionManager.ActiveSessionCount}).");
+            LogDaemon("daemon-pipe-server", "client.disconnected", message: "Client disconnected", fields: new Dictionary<string, object?>
+            {
+                ["activeSessions"] = _sessionManager.ActiveSessionCount,
+                ["clientId"] = clientId,
+                ["connectedClients"] = _connectedClients,
+            });
         }
     }
 
@@ -221,7 +250,12 @@ public sealed class DaemonPipeServer
 
             // 记录非写入类请求（写入请求过于频繁，不记录）
             if (request.Type != DaemonMessageTypes.SessionWrite)
-                LogDaemon($"[PipeServer] Request: {request.Type} pane={request.PaneId}");
+            {
+                LogDaemon("daemon-pipe-server", "request.received", request.PaneId, "Received daemon request", new Dictionary<string, object?>
+                {
+                    ["requestType"] = request.Type,
+                });
+            }
 
             return request.Type switch
             {
@@ -250,7 +284,8 @@ public sealed class DaemonPipeServer
             request.Cols ?? 120,
             request.Rows ?? 30,
             request.WorkingDirectory,
-            request.Command);
+            request.Command,
+            request.WorkspaceId);
 
         return JsonSerializer.Serialize(new DaemonResponse { Success = true, Data = JsonSerializer.Serialize(info) });
     }

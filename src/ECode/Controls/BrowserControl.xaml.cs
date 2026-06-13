@@ -1,7 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ECode.ViewModels;
 using Microsoft.Web.WebView2.Core;
+using System.Diagnostics;
 
 namespace ECode.Controls;
 
@@ -13,9 +15,13 @@ public partial class BrowserControl : UserControl
 {
     public event Action? CloseRequested;
 
+    public BrowserPaneViewModel Browser { get; } = new();
+
     public BrowserControl()
     {
         InitializeComponent();
+        Browser.PropertyChanged += (_, _) => UpdateToolbarState();
+        UpdateToolbarState();
         InitializeWebView();
     }
 
@@ -24,33 +30,48 @@ public partial class BrowserControl : UserControl
         try
         {
             await WebView.EnsureCoreWebView2Async();
+            HideErrorOverlay();
             WebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
             WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+            WebView.CoreWebView2.DocumentTitleChanged += (_, _) =>
+            {
+                Browser.UpdateNavigationState(
+                    WebView.CoreWebView2.Source,
+                    WebView.CoreWebView2.DocumentTitle,
+                    WebView.CoreWebView2.CanGoBack,
+                    WebView.CoreWebView2.CanGoForward);
+            };
+            WebView.CoreWebView2.HistoryChanged += (_, _) => SyncBrowserStateFromWebView();
+            SyncBrowserStateFromWebView();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"WebView2 init failed: {ex.Message}");
+            ShowWebViewError("请安装或修复 Microsoft Edge WebView2 Runtime 后重试。\n\n" + ex.Message);
+            Debug.WriteLine($"WebView2 init failed: {ex.Message}");
         }
     }
 
     /// <summary>导航到指定 URL。</summary>
     public void Navigate(string url)
     {
-        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            url = "https://" + url;
-        }
+        url = BrowserPaneViewModel.NormalizeUrl(url);
+        if (string.IsNullOrWhiteSpace(url))
+            return;
 
         try
         {
-            WebView.CoreWebView2?.Navigate(url);
+            Browser.BeginNavigation(url);
+            if (WebView.CoreWebView2 != null)
+                WebView.CoreWebView2.Navigate(url);
+            else
+                WebView.Source = new Uri(url);
+
             AddressBar.Text = url;
         }
-        catch
+        catch (Exception ex)
         {
-            // 无效的 URL
+            Browser.CompleteNavigation(url, Browser.Title, Browser.CanGoBack, Browser.CanGoForward, success: false, ex.Message);
         }
     }
 
@@ -132,6 +153,37 @@ public partial class BrowserControl : UserControl
         WebView.CoreWebView2?.Reload();
     }
 
+    private void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        WebView.CoreWebView2?.Stop();
+        Browser.CompleteNavigation(
+            WebView.CoreWebView2?.Source ?? WebView.Source?.ToString(),
+            WebView.CoreWebView2?.DocumentTitle,
+            WebView.CoreWebView2?.CanGoBack == true,
+            WebView.CoreWebView2?.CanGoForward == true,
+            success: true);
+    }
+
+    private void DevTools_Click(object sender, RoutedEventArgs e)
+    {
+        WebView.CoreWebView2?.OpenDevToolsWindow();
+    }
+
+    private void DownloadWebView2_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://developer.microsoft.com/microsoft-edge/webview2/")
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowWebViewError("无法打开下载页面，请手动访问 https://developer.microsoft.com/microsoft-edge/webview2/\n\n" + ex.Message);
+        }
+    }
+
     private void CloseBrowser_Click(object sender, RoutedEventArgs e)
     {
         CloseRequested?.Invoke();
@@ -148,12 +200,69 @@ public partial class BrowserControl : UserControl
 
     private void WebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
-        AddressBar.Text = WebView.CoreWebView2?.Source ?? "";
+        Browser.CompleteNavigation(
+            WebView.CoreWebView2?.Source ?? WebView.Source?.ToString(),
+            WebView.CoreWebView2?.DocumentTitle,
+            WebView.CoreWebView2?.CanGoBack == true,
+            WebView.CoreWebView2?.CanGoForward == true,
+            e.IsSuccess,
+            e.WebErrorStatus.ToString());
+        SyncAddressBarFromBrowser();
     }
 
     private void WebView_SourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
     {
-        AddressBar.Text = WebView.CoreWebView2?.Source ?? "";
+        SyncBrowserStateFromWebView();
+        SyncAddressBarFromBrowser();
+    }
+
+    private void WebView_NavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        Browser.BeginNavigation(e.Uri);
+        SyncAddressBarFromBrowser();
+    }
+
+    private void SyncBrowserStateFromWebView()
+    {
+        Browser.UpdateNavigationState(
+            WebView.CoreWebView2?.Source ?? WebView.Source?.ToString(),
+            WebView.CoreWebView2?.DocumentTitle,
+            WebView.CoreWebView2?.CanGoBack == true,
+            WebView.CoreWebView2?.CanGoForward == true);
+    }
+
+    private void SyncAddressBarFromBrowser()
+    {
+        if (!AddressBar.IsKeyboardFocusWithin)
+            AddressBar.Text = Browser.Url;
+    }
+
+    private void UpdateToolbarState()
+    {
+        if (!IsInitialized)
+            return;
+
+        BackButton.IsEnabled = Browser.IsWebViewAvailable && Browser.CanGoBack;
+        ForwardButton.IsEnabled = Browser.IsWebViewAvailable && Browser.CanGoForward;
+        ReloadButton.IsEnabled = Browser.IsWebViewAvailable && !Browser.IsLoading;
+        StopButton.IsEnabled = Browser.IsWebViewAvailable && Browser.IsLoading;
+        StopButton.Visibility = Browser.IsLoading ? Visibility.Visible : Visibility.Collapsed;
+        DevToolsButton.IsEnabled = Browser.IsWebViewAvailable && WebView.CoreWebView2 != null;
+        LoadingProgress.Visibility = Browser.IsLoading ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ShowWebViewError(string message)
+    {
+        Browser.SetWebViewUnavailable(message);
+        ErrorMessageText.Text = message;
+        ErrorOverlay.Visibility = Visibility.Visible;
+        WebView.Visibility = Visibility.Collapsed;
+    }
+
+    private void HideErrorOverlay()
+    {
+        ErrorOverlay.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Visible;
     }
 }
 

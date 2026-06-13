@@ -21,12 +21,22 @@ public sealed class DaemonSessionManager : IDisposable
 
     public int ActiveSessionCount => _sessions.Count;
 
-    public DaemonSessionInfo CreateSession(string paneId, int cols, int rows, string? workingDirectory, string? command)
+    public DaemonSessionInfo CreateSession(
+        string paneId,
+        int cols,
+        int rows,
+        string? workingDirectory,
+        string? command,
+        string? workspaceId)
     {
         // 如果会话已存在，则返回其信息（attach/重连语义）
         if (_sessions.TryGetValue(paneId, out var existing))
         {
-            LogDaemon($"[SessionMgr] Reconnecting to existing session: {paneId} (running={existing.IsRunning}, cwd={existing.WorkingDirectory})");
+            LogDaemon("daemon-session-manager", "session.attach", paneId, "Reconnecting to existing session", new Dictionary<string, object?>
+            {
+                ["cwd"] = existing.WorkingDirectory,
+                ["running"] = existing.IsRunning,
+            });
             return new DaemonSessionInfo
             {
                 PaneId = paneId,
@@ -39,7 +49,14 @@ public sealed class DaemonSessionManager : IDisposable
             };
         }
 
-        LogDaemon($"[SessionMgr] Creating NEW session: {paneId} ({cols}x{rows}) cwd={workingDirectory} cmd={command}");
+        LogDaemon("daemon-session-manager", "session.create", paneId, "Creating new session", new Dictionary<string, object?>
+        {
+            ["cols"] = cols,
+            ["command"] = command,
+            ["cwd"] = workingDirectory,
+            ["rows"] = rows,
+            ["workspaceId"] = workspaceId,
+        });
         var session = new TerminalSession(paneId, cols, rows);
 
         session.RawOutputReceived += data =>
@@ -68,7 +85,10 @@ public sealed class DaemonSessionManager : IDisposable
         };
 
         _sessions[paneId] = session;
-        session.Start(command: command, workingDirectory: workingDirectory);
+        session.Start(
+            command: command,
+            workingDirectory: workingDirectory,
+            environment: TerminalEnvironmentVariables.ForWorkspace(workspaceId));
 
         SessionCreated?.Invoke(paneId);
 

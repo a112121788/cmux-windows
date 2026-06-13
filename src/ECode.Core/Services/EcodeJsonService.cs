@@ -106,6 +106,16 @@ public sealed class EcodeJsonService
     {
         config.Actions ??= [];
         config.Commands ??= [];
+        if (config.Workspace != null)
+        {
+            config.Workspace.Surfaces ??= [];
+            foreach (var surface in config.Workspace.Surfaces)
+            {
+                surface.Type = NormalizeSurfaceType(surface.Type);
+                surface.Name = string.IsNullOrWhiteSpace(surface.Name) ? null : surface.Name.Trim();
+                surface.Url = string.IsNullOrWhiteSpace(surface.Url) ? null : surface.Url.Trim();
+            }
+        }
 
         foreach (var command in config.Commands)
         {
@@ -142,6 +152,13 @@ public sealed class EcodeJsonService
         return string.IsNullOrWhiteSpace(target)
             ? EcodeActionTargets.CurrentTerminal
             : target.Trim();
+    }
+
+    private static string NormalizeSurfaceType(string? type)
+    {
+        return string.IsNullOrWhiteSpace(type)
+            ? EcodeSurfaceTypes.Terminal
+            : type.Trim().ToLowerInvariant();
     }
 
     private static void Validate(EcodeJsonConfig config, string path, List<EcodeJsonDiagnostic> diagnostics)
@@ -197,6 +214,41 @@ public sealed class EcodeJsonService
 
             ValidateTarget(action.Target, path, $"actions.{id}.target", diagnostics);
         }
+
+        if (config.Workspace?.Surfaces != null)
+        {
+            for (var i = 0; i < config.Workspace.Surfaces.Count; i++)
+            {
+                var surface = config.Workspace.Surfaces[i];
+                if (!string.Equals(surface.Type, EcodeSurfaceTypes.Terminal, StringComparison.Ordinal) &&
+                    !string.Equals(surface.Type, EcodeSurfaceTypes.Browser, StringComparison.Ordinal))
+                {
+                    diagnostics.Add(new EcodeJsonDiagnostic(
+                        EcodeJsonDiagnosticSeverity.Error,
+                        path,
+                        $"workspace.surfaces[{i}].type '{surface.Type}' is not supported."));
+                    continue;
+                }
+
+                if (string.Equals(surface.Type, EcodeSurfaceTypes.Browser, StringComparison.Ordinal) &&
+                    string.IsNullOrWhiteSpace(surface.Url))
+                {
+                    diagnostics.Add(new EcodeJsonDiagnostic(
+                        EcodeJsonDiagnosticSeverity.Error,
+                        path,
+                        $"workspace.surfaces[{i}].url is required for browser surfaces."));
+                }
+            }
+
+            if (config.Workspace.SelectedSurfaceIndex is { } selectedIndex &&
+                (selectedIndex < 0 || selectedIndex >= config.Workspace.Surfaces.Count))
+            {
+                diagnostics.Add(new EcodeJsonDiagnostic(
+                    EcodeJsonDiagnosticSeverity.Warning,
+                    path,
+                    $"workspace.selectedSurfaceIndex {selectedIndex} is outside workspace.surfaces."));
+            }
+        }
     }
 
     private static void ValidateTarget(
@@ -223,6 +275,9 @@ public sealed class EcodeJsonService
 
         foreach (var (id, action) in source.Actions)
             target.Actions[id] = action;
+
+        if (source.Workspace != null)
+            target.Workspace = source.Workspace;
 
         if (source.Ui != null)
             target.Ui = source.Ui;

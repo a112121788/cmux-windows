@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.ComponentModel;
+using System.Text.Json;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -13,7 +14,11 @@ using ECode.Core.Services;
 using ECode.ViewModels;
 using ECode.Services;
 using EcodeActionTargets = ECode.Core.Models.EcodeActionTargets;
+using EcodeJsonLoadResult = ECode.Core.Models.EcodeJsonLoadResult;
 using EcodeJsonDiagnosticSeverity = ECode.Core.Models.EcodeJsonDiagnosticSeverity;
+using EcodeSurfaceConfig = ECode.Core.Models.EcodeSurfaceConfig;
+using EcodeSurfaceTypes = ECode.Core.Models.EcodeSurfaceTypes;
+using SurfaceKind = ECode.Core.Models.SurfaceKind;
 
 namespace ECode.Views;
 
@@ -67,6 +72,7 @@ public partial class MainWindow : Window
 
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         ViewModel.WorkspaceOrderChanged += PersistCurrentSession;
+        ViewModel.ConfigReloadRequested += ReloadEcodeJsonConfigForIpc;
     }
 
     private void OnSettingsChanged()
@@ -147,6 +153,7 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => UpdateWindowChrome();
         UpdateWindowClip();
         QueueFocusTerminal();
+        ApplyEcodeJsonWorkspaceLayout(LoadEcodeJsonConfig());
 
         // 监听守护进程连接状态变化
         App.DaemonClient.Connected += () => Dispatcher.BeginInvoke(UpdateDaemonStatus);
@@ -191,6 +198,7 @@ public partial class MainWindow : Window
         _terminalFocusTimer.Stop();
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         ViewModel.WorkspaceOrderChanged -= PersistCurrentSession;
+        ViewModel.ConfigReloadRequested -= ReloadEcodeJsonConfigForIpc;
         SurfaceTabBarControl.SurfaceOrderChanged -= PersistCurrentSession;
         PersistCurrentSession();
     }
@@ -297,6 +305,10 @@ public partial class MainWindow : Window
                     return;
                 case Key.P: // Command palette (Ctrl+Shift+P)
                     ToggleCommandPalette();
+                    e.Handled = true;
+                    return;
+                case Key.OemComma: // Reload ecode.json (Ctrl+Shift+,)
+                    ReloadEcodeJsonConfig(showFeedback: true);
                     e.Handled = true;
                     return;
                 case Key.L: // Logs (Ctrl+Shift+L)
@@ -519,6 +531,7 @@ public partial class MainWindow : Window
 
     private void MenuOpenLogs_Click(object sender, RoutedEventArgs e) => OpenLogsWindow();
     private void MenuOpenSessionVault_Click(object sender, RoutedEventArgs e) => OpenSessionVault();
+    private void MenuReloadConfig_Click(object sender, RoutedEventArgs e) => ReloadEcodeJsonConfig(showFeedback: true);
     private void MenuOpenSettings_Click(object sender, RoutedEventArgs e) => OpenSettings();
     private void MenuOpenKeyboardShortcuts_Click(object sender, RoutedEventArgs e)
     {
@@ -649,7 +662,7 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private List<PaletteItem> BuildPaletteItems()
+    private List<PaletteItem> BuildPaletteItems(EcodeJsonLoadResult? ecodeJson = null)
     {
         List<PaletteItem> items =
         [
@@ -673,6 +686,7 @@ public partial class MainWindow : Window
             new() { Id = "next-surface", Label = "下一标签页", Icon = "\uE76C", Shortcut = "Ctrl+Tab", Category = "标签页", Execute = () => ViewModel.SelectedWorkspace?.NextSurface() },
             new() { Id = "prev-surface", Label = "上一标签页", Icon = "\uE76B", Shortcut = "Ctrl+Shift+Tab", Category = "标签页", Execute = () => ViewModel.SelectedWorkspace?.PreviousSurface() },
             new() { Id = "settings", Label = "Settings", Icon = "\uE713", Shortcut = "Ctrl+,", Category = "应用", Execute = () => OpenSettings() },
+            new() { Id = "reload-config", Label = "重载 ecode.json", Icon = "\uE72C", Shortcut = "Ctrl+Shift+,", Category = "配置", Execute = () => ReloadEcodeJsonConfig(showFeedback: true) },
             new() { Id = "equalize", Label = "等宽面板", Icon = "\uE9D5", Category = "面板", Execute = () => ViewModel.SelectedWorkspace?.SelectedSurface?.EqualizePanes() },
             new() { Id = "layout-2col", Label = "布局：两列", Icon = "\uE745", Category = "布局", Execute = () => ApplyLayout(2, 1) },
             new() { Id = "layout-3col", Label = "布局：三列", Icon = "\uE745", Category = "布局", Execute = () => ApplyLayout(3, 1) },
@@ -680,15 +694,18 @@ public partial class MainWindow : Window
             new() { Id = "layout-main-stack", Label = "布局：主+副", Icon = "\uE745", Category = "布局", Execute = () => ApplyMainStackLayout() },
         ];
 
-        AddEcodeJsonPaletteItems(items);
+        AddEcodeJsonPaletteItems(items, ecodeJson ?? LoadEcodeJsonConfig());
         return items;
     }
 
-    private void AddEcodeJsonPaletteItems(List<PaletteItem> items)
+    private EcodeJsonLoadResult LoadEcodeJsonConfig()
     {
         var service = new EcodeJsonService();
-        var result = service.Load(GetActiveWorkspaceDirectory());
+        return service.Load(GetActiveWorkspaceDirectory());
+    }
 
+    private void AddEcodeJsonPaletteItems(List<PaletteItem> items, EcodeJsonLoadResult result)
+    {
         foreach (var diagnostic in result.Diagnostics)
         {
             items.Add(new PaletteItem
@@ -755,6 +772,165 @@ public partial class MainWindow : Window
                     action.Confirm),
             });
         }
+    }
+
+    private void ReloadEcodeJsonConfig(bool showFeedback)
+    {
+        var result = LoadEcodeJsonConfig();
+        var appliedSurfaceCount = ApplyEcodeJsonWorkspaceLayout(result);
+        RefreshCommandPalette(result);
+
+        if (showFeedback)
+            ShowEcodeJsonReloadResult(result, appliedSurfaceCount);
+    }
+
+    private string ReloadEcodeJsonConfigForIpc()
+    {
+        var result = LoadEcodeJsonConfig();
+        var appliedSurfaceCount = ApplyEcodeJsonWorkspaceLayout(result);
+        RefreshCommandPalette(result);
+
+        return JsonSerializer.Serialize(new
+        {
+            ok = !result.HasErrors,
+            loadedPaths = result.LoadedPaths,
+            commandCount = result.Config.Commands.Count,
+            actionCount = result.Config.Actions.Count,
+            workspaceSurfaceCount = result.Config.Workspace?.Surfaces.Count ?? 0,
+            appliedSurfaceCount,
+            diagnostics = result.Diagnostics.Select(d => new
+            {
+                severity = d.Severity.ToString().ToLowerInvariant(),
+                d.Path,
+                d.Message,
+            }),
+        });
+    }
+
+    private int ApplyEcodeJsonWorkspaceLayout(EcodeJsonLoadResult result)
+    {
+        var workspaceConfig = result.Config.Workspace;
+        var workspace = ViewModel.SelectedWorkspace;
+        if (workspaceConfig?.Surfaces is not { Count: > 0 } surfaces || workspace == null)
+            return 0;
+
+        var previousSelectedSurface = workspace.SelectedSurface;
+        SurfaceViewModel? selectedFromConfig = null;
+        var appliedCount = 0;
+
+        for (var i = 0; i < surfaces.Count; i++)
+        {
+            var surfaceConfig = surfaces[i];
+            var surface = ApplyEcodeJsonSurface(workspace, surfaceConfig);
+            if (surface == null)
+                continue;
+
+            appliedCount++;
+            if (workspaceConfig.SelectedSurfaceIndex == i)
+                selectedFromConfig = surface;
+        }
+
+        if (selectedFromConfig != null)
+        {
+            workspace.SelectedSurface = selectedFromConfig;
+        }
+        else if (previousSelectedSurface != null && workspace.Surfaces.Contains(previousSelectedSurface))
+        {
+            workspace.SelectedSurface = previousSelectedSurface;
+        }
+
+        if (appliedCount > 0)
+            PersistCurrentSession();
+
+        return appliedCount;
+    }
+
+    private static SurfaceViewModel? ApplyEcodeJsonSurface(WorkspaceViewModel workspace, EcodeSurfaceConfig surfaceConfig)
+    {
+        if (string.Equals(surfaceConfig.Type, EcodeSurfaceTypes.Browser, StringComparison.Ordinal))
+        {
+            var url = surfaceConfig.Url;
+            if (string.IsNullOrWhiteSpace(url))
+                return null;
+
+            var browserSurface = FindConfiguredBrowserSurface(workspace, surfaceConfig);
+            if (browserSurface == null)
+            {
+                return workspace.CreateBrowserSurface(url, surfaceConfig.Name);
+            }
+
+            if (!string.IsNullOrWhiteSpace(surfaceConfig.Name))
+                browserSurface.Name = surfaceConfig.Name;
+
+            browserSurface.OpenBrowserUrl(url);
+            return browserSurface;
+        }
+
+        if (!string.Equals(surfaceConfig.Type, EcodeSurfaceTypes.Terminal, StringComparison.Ordinal))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(surfaceConfig.Name))
+            return workspace.SelectedSurface?.Surface.Kind == SurfaceKind.Terminal
+                ? workspace.SelectedSurface
+                : workspace.Surfaces.FirstOrDefault(s => s.Surface.Kind == SurfaceKind.Terminal);
+
+        return workspace.Surfaces.FirstOrDefault(s =>
+            s.Surface.Kind == SurfaceKind.Terminal &&
+            string.Equals(s.Name, surfaceConfig.Name, StringComparison.OrdinalIgnoreCase))
+            ?? workspace.CreateTerminalSurface(surfaceConfig.Name);
+    }
+
+    private static SurfaceViewModel? FindConfiguredBrowserSurface(WorkspaceViewModel workspace, EcodeSurfaceConfig surfaceConfig)
+    {
+        if (!string.IsNullOrWhiteSpace(surfaceConfig.Name))
+        {
+            var byName = workspace.Surfaces.FirstOrDefault(s =>
+                s.Surface.Kind == SurfaceKind.Browser &&
+                string.Equals(s.Name, surfaceConfig.Name, StringComparison.OrdinalIgnoreCase));
+            if (byName != null)
+                return byName;
+        }
+
+        var normalizedUrl = BrowserPaneViewModel.NormalizeUrl(surfaceConfig.Url ?? "");
+        if (string.IsNullOrWhiteSpace(normalizedUrl))
+            return null;
+
+        return workspace.Surfaces.FirstOrDefault(s =>
+            s.Surface.Kind == SurfaceKind.Browser &&
+            string.Equals(BrowserPaneViewModel.NormalizeUrl(s.Surface.BrowserUrl ?? ""), normalizedUrl, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void RefreshCommandPalette(EcodeJsonLoadResult result)
+    {
+        if (CommandPaletteControl.Visibility != Visibility.Visible)
+            return;
+
+        CommandPaletteControl.RefreshItems(BuildPaletteItems(result));
+    }
+
+    private void ShowEcodeJsonReloadResult(EcodeJsonLoadResult result, int appliedSurfaceCount)
+    {
+        var message = result.LoadedPaths.Count == 0
+            ? "未找到 ecode.json。"
+            : $"已重载 {result.LoadedPaths.Count} 个 ecode.json，命令 {result.Config.Commands.Count} 个，动作 {result.Config.Actions.Count} 个。";
+
+        if (appliedSurfaceCount > 0)
+            message += $"{Environment.NewLine}已应用 workspace surface {appliedSurfaceCount} 个。";
+
+        if (result.Diagnostics.Count > 0)
+        {
+            var diagnosticSummary = string.Join(
+                Environment.NewLine,
+                result.Diagnostics.Take(5).Select(d => $"{d.Severity}: {d.Message}"));
+            message += $"{Environment.NewLine}{Environment.NewLine}{diagnosticSummary}";
+        }
+
+        MessageBox.Show(
+            this,
+            message,
+            "ecode.json",
+            MessageBoxButton.OK,
+            result.HasErrors ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
     private string? GetActiveWorkspaceDirectory()

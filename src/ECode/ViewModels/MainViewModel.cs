@@ -42,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     public NotificationService NotificationService => _notificationService;
 
     public event Action? WorkspaceOrderChanged;
+    public event Func<string>? ConfigReloadRequested;
 
     public MainViewModel()
     {
@@ -104,6 +105,10 @@ public partial class MainViewModel : ObservableObject
             var clonedSurface = new Surface
             {
                 Name = sourceSurface.Name,
+                Kind = sourceSurface.Kind,
+                BrowserUrl = sourceSurface.BrowserUrl,
+                BrowserTitle = sourceSurface.BrowserTitle,
+                BrowserHistory = sourceSurface.BrowserHistory.ToList(),
                 RootSplitNode = clonedRoot,
                 FocusedPaneId = sourceSurface.FocusedPaneId != null && paneIdMap.TryGetValue(sourceSurface.FocusedPaneId, out var mappedFocused)
                     ? mappedFocused
@@ -347,6 +352,10 @@ public partial class MainViewModel : ObservableObject
                 {
                     Id = surfState.Id,
                     Name = surfState.Name,
+                    Kind = surfState.Kind,
+                    BrowserUrl = surfState.BrowserUrl,
+                    BrowserTitle = surfState.BrowserTitle,
+                    BrowserHistory = surfState.BrowserHistory.ToList(),
                     FocusedPaneId = surfState.FocusedPaneId,
                     PaneCustomNames = new Dictionary<string, string>(surfState.PaneCustomNames),
                     PaneSnapshots = surfState.PaneSnapshots.ToDictionary(
@@ -452,16 +461,35 @@ public partial class MainViewModel : ObservableObject
                 "WORKSPACE.SELECT" => HandleWorkspaceSelect(args),
                 "SURFACE.CREATE" => HandleSurfaceCreate(args),
                 "SURFACE.SELECT" => HandleSurfaceSelect(args),
+                "SURFACE.RESUME.SHOW" => HandleSurfaceResumeShow(args),
+                "SURFACE.RESUME.SET" => HandleSurfaceResumeSet(args),
+                "SURFACE.RESUME.CLEAR" => HandleSurfaceResumeClear(args),
+                "BROWSER.OPEN" => HandleBrowserOpen(args),
+                "BROWSER.NEW" => HandleBrowserNew(args),
+                "BROWSER.OPEN_SPLIT" => HandleBrowserOpenSplit(args),
                 "SPLIT.RIGHT" => HandleSplit(SplitDirection.Vertical),
                 "SPLIT.DOWN" => HandleSplit(SplitDirection.Horizontal),
                 "PANE.LIST" => HandlePaneList(args),
                 "PANE.FOCUS" => HandlePaneFocus(args),
                 "PANE.WRITE" => HandlePaneWrite(args),
                 "PANE.READ" => HandlePaneRead(args),
+                "CONFIG.RELOAD" => HandleConfigReload(),
                 "STATUS" => HandleStatus(),
                 _ => JsonSerializer.Serialize(new { error = $"Unknown command: {command}" }),
             };
         });
+    }
+
+    private string HandleConfigReload()
+    {
+        return ConfigReloadRequested?.Invoke()
+            ?? JsonSerializer.Serialize(new
+            {
+                ok = true,
+                loadedPaths = Array.Empty<string>(),
+                diagnostics = Array.Empty<object>(),
+                note = "No config reload handler registered.",
+            });
     }
 
     private string HandleNotifyCommand(Dictionary<string, string> args)
@@ -557,6 +585,232 @@ public partial class MainViewModel : ObservableObject
             workspaceName = workspace.Name,
             surfaceId = surface.Surface.Id,
             surfaceName = surface.Name,
+        });
+    }
+
+    private string HandleSurfaceResumeShow(Dictionary<string, string> args)
+    {
+        if (!TryResolveWorkspace(args, out var workspace, out var error))
+            return JsonSerializer.Serialize(new { error });
+
+        if (!TryResolveSurface(workspace, args, out var surface, out error))
+            return JsonSerializer.Serialize(new { error });
+
+        var bindings = new ResumeBindingService()
+            .FindForSurface(workspace.Workspace.Id, surface.Surface.Id);
+
+        object? pane = null;
+        if (!IsTruthy(args, "all"))
+        {
+            if (!TryResolvePaneId(surface, args, out var paneId, out var paneIndex, out var paneName, out error))
+                return JsonSerializer.Serialize(new { error });
+
+            bindings = bindings
+                .Where(b => string.Equals(b.PaneId, paneId, StringComparison.Ordinal))
+                .ToList();
+
+            pane = CreatePaneResponse(surface, paneId, paneIndex, paneName);
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            workspace = new
+            {
+                id = workspace.Workspace.Id,
+                name = workspace.Name,
+            },
+            surface = new
+            {
+                id = surface.Surface.Id,
+                name = surface.Name,
+            },
+            pane,
+            bindings,
+        });
+    }
+
+    private string HandleSurfaceResumeSet(Dictionary<string, string> args)
+    {
+        if (!TryResolveWorkspace(args, out var workspace, out var error))
+            return JsonSerializer.Serialize(new { error });
+
+        if (!TryResolveSurface(workspace, args, out var surface, out error))
+            return JsonSerializer.Serialize(new { error });
+
+        if (!TryResolvePaneId(surface, args, out var paneId, out var paneIndex, out var paneName, out error))
+            return JsonSerializer.Serialize(new { error });
+
+        var shell = GetArg(args, "shell", "command") ?? GetJoinedPositionals(args);
+        if (string.IsNullOrWhiteSpace(shell))
+            return JsonSerializer.Serialize(new { error = "Missing required argument: shell" });
+
+        var kind = (GetArg(args, "kind") ?? ResumeBindingKinds.Custom).Trim().ToLowerInvariant();
+        if (kind is not (ResumeBindingKinds.Tmux or ResumeBindingKinds.Custom))
+            return JsonSerializer.Serialize(new { error = $"Unsupported resume kind: {kind}" });
+
+        var workingDirectory = GetArg(args, "workingDirectory", "cwd");
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+            workingDirectory = surface.GetSession(paneId)?.WorkingDirectory;
+
+        var trusted = TryGetBool(args, "trusted", out var parsedTrusted) && parsedTrusted;
+        var approvedPrefix = GetArg(args, "approvedPrefix", "prefix");
+        var binding = new ResumeBinding
+        {
+            Id = GetArg(args, "id") ?? "",
+            WorkspaceId = workspace.Workspace.Id,
+            SurfaceId = surface.Surface.Id,
+            PaneId = paneId,
+            Kind = kind,
+            Checkpoint = GetArg(args, "checkpoint"),
+            Shell = shell,
+            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? null : workingDirectory,
+            Trusted = trusted,
+            TrustReason = trusted
+                ? (string.IsNullOrWhiteSpace(approvedPrefix) ? "cli" : "user-approved-prefix")
+                : null,
+            ApprovedPrefix = string.IsNullOrWhiteSpace(approvedPrefix) ? null : approvedPrefix,
+        };
+
+        var saved = new ResumeBindingService().SetForPane(binding);
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            workspaceId = workspace.Workspace.Id,
+            workspaceName = workspace.Name,
+            surfaceId = surface.Surface.Id,
+            surfaceName = surface.Name,
+            paneId,
+            paneIndex,
+            paneName,
+            binding = saved,
+        });
+    }
+
+    private string HandleSurfaceResumeClear(Dictionary<string, string> args)
+    {
+        var service = new ResumeBindingService();
+        if (args.TryGetValue("id", out var bindingId) && !string.IsNullOrWhiteSpace(bindingId))
+        {
+            var removedById = service.Remove(bindingId);
+            return JsonSerializer.Serialize(new
+            {
+                ok = removedById,
+                removed = removedById ? 1 : 0,
+                id = bindingId,
+            });
+        }
+
+        if (!TryResolveWorkspace(args, out var workspace, out var error))
+            return JsonSerializer.Serialize(new { error });
+
+        if (!TryResolveSurface(workspace, args, out var surface, out error))
+            return JsonSerializer.Serialize(new { error });
+
+        if (!TryResolvePaneId(surface, args, out var paneId, out var paneIndex, out var paneName, out error))
+            return JsonSerializer.Serialize(new { error });
+
+        var removed = service.RemoveForPane(workspace.Workspace.Id, surface.Surface.Id, paneId);
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            removed,
+            workspaceId = workspace.Workspace.Id,
+            workspaceName = workspace.Name,
+            surfaceId = surface.Surface.Id,
+            surfaceName = surface.Name,
+            paneId,
+            paneIndex,
+            paneName,
+        });
+    }
+
+    private string HandleBrowserOpen(Dictionary<string, string> args)
+    {
+        if (!TryResolveWorkspace(args, out var workspace, out var error))
+            return JsonSerializer.Serialize(new { error });
+
+        var url = GetBrowserUrl(args);
+        if (string.IsNullOrWhiteSpace(url))
+            return JsonSerializer.Serialize(new { error = "Missing required argument: url" });
+
+        SurfaceViewModel? surface = null;
+        if (HasSurfaceSelector(args))
+        {
+            if (!TryResolveSurface(workspace, args, out var resolvedSurface, out error))
+                return JsonSerializer.Serialize(new { error });
+
+            surface = resolvedSurface;
+            if (surface.Surface.Kind != SurfaceKind.Browser)
+                surface = null;
+        }
+        else if (workspace.SelectedSurface?.Surface.Kind == SurfaceKind.Browser)
+        {
+            surface = workspace.SelectedSurface;
+        }
+
+        var created = surface == null;
+        surface ??= workspace.CreateBrowserSurface(url, GetArg(args, "name", "title"));
+        surface.OpenBrowserUrl(url);
+        SelectedWorkspace = workspace;
+        workspace.SelectedSurface = surface;
+
+        return CreateBrowserResponse(workspace, surface, created, fallbackMode: null);
+    }
+
+    private string HandleBrowserNew(Dictionary<string, string> args)
+    {
+        if (!TryResolveWorkspace(args, out var workspace, out var error))
+            return JsonSerializer.Serialize(new { error });
+
+        var url = GetBrowserUrl(args);
+        if (string.IsNullOrWhiteSpace(url))
+            return JsonSerializer.Serialize(new { error = "Missing required argument: url" });
+
+        var surface = workspace.CreateBrowserSurface(url, GetArg(args, "name", "title"));
+        SelectedWorkspace = workspace;
+        return CreateBrowserResponse(workspace, surface, created: true, fallbackMode: null);
+    }
+
+    private string HandleBrowserOpenSplit(Dictionary<string, string> args)
+    {
+        if (!TryResolveWorkspace(args, out var workspace, out var error))
+            return JsonSerializer.Serialize(new { error });
+
+        var url = GetBrowserUrl(args);
+        if (string.IsNullOrWhiteSpace(url))
+            return JsonSerializer.Serialize(new { error = "Missing required argument: url" });
+
+        var surface = workspace.CreateBrowserSurface(url, GetArg(args, "name", "title"));
+        SelectedWorkspace = workspace;
+        return CreateBrowserResponse(
+            workspace,
+            surface,
+            created: true,
+            fallbackMode: "new-surface",
+            direction: GetArg(args, "direction") ?? "right");
+    }
+
+    private static string CreateBrowserResponse(
+        WorkspaceViewModel workspace,
+        SurfaceViewModel surface,
+        bool created,
+        string? fallbackMode,
+        string? direction = null)
+    {
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            created,
+            fallbackMode,
+            direction,
+            workspaceId = workspace.Workspace.Id,
+            workspaceName = workspace.Name,
+            surfaceId = surface.Surface.Id,
+            surfaceName = surface.Name,
+            kind = surface.Surface.Kind.ToString(),
+            url = surface.Surface.BrowserUrl,
+            title = surface.Surface.BrowserTitle,
         });
     }
 
@@ -755,6 +1009,91 @@ public partial class MainViewModel : ObservableObject
             selectedWorkspace = SelectedWorkspace?.Workspace.Id,
             unreadNotifications = TotalUnreadCount,
         });
+    }
+
+    private static object CreatePaneResponse(SurfaceViewModel surface, string paneId, int paneIndex, string paneName)
+    {
+        return new
+        {
+            id = paneId,
+            index = paneIndex,
+            name = paneName,
+            workingDirectory = surface.GetSession(paneId)?.WorkingDirectory ?? "",
+        };
+    }
+
+    private static string? GetArg(Dictionary<string, string> args, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (args.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static string? GetBrowserUrl(Dictionary<string, string> args)
+    {
+        return BrowserPaneViewModel.NormalizeUrl(GetArg(args, "url", "href", "_arg0") ?? "");
+    }
+
+    private static bool HasSurfaceSelector(Dictionary<string, string> args)
+    {
+        return args.ContainsKey("surfaceId") ||
+               args.ContainsKey("surfaceName") ||
+               args.ContainsKey("surfaceIndex");
+    }
+
+    private static string GetJoinedPositionals(Dictionary<string, string> args)
+    {
+        var values = args
+            .Select(kvp => new
+            {
+                kvp.Value,
+                Index = TryParsePositionalIndex(kvp.Key, out var index) ? index : -1,
+            })
+            .Where(x => x.Index >= 0)
+            .OrderBy(x => x.Index)
+            .Select(x => x.Value);
+
+        return string.Join(" ", values);
+    }
+
+    private static bool TryParsePositionalIndex(string key, out int index)
+    {
+        index = -1;
+        return key.StartsWith("_arg", StringComparison.Ordinal) &&
+               int.TryParse(key[4..], out index);
+    }
+
+    private static bool IsTruthy(Dictionary<string, string> args, string key)
+    {
+        return TryGetBool(args, key, out var value) && value;
+    }
+
+    private static bool TryGetBool(Dictionary<string, string> args, string key, out bool value)
+    {
+        value = false;
+        if (!args.TryGetValue(key, out var raw))
+            return false;
+
+        if (bool.TryParse(raw, out value))
+            return true;
+
+        if (raw == "1")
+        {
+            value = true;
+            return true;
+        }
+
+        if (raw == "0")
+        {
+            value = false;
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryResolveWorkspace(Dictionary<string, string> args, out WorkspaceViewModel workspace, out string error)

@@ -18,6 +18,7 @@ public class SplitPaneContainer : ContentControl
 {
     private SurfaceViewModel? _surface;
     private readonly Dictionary<string, TerminalControl> _terminalCache = [];
+    private readonly Dictionary<string, BrowserControl> _browserCache = [];
     private int _lastAttentionVersion;
 
     public event Action? SearchRequested;
@@ -45,6 +46,7 @@ public class SplitPaneContainer : ContentControl
         // 切换 Surface/项目时清除终端缓存
         // 防止重用来自其他项目的终端
         _terminalCache.Clear();
+        _browserCache.Clear();
 
         _surface = e.NewValue as SurfaceViewModel;
         _lastAttentionVersion = 0;
@@ -80,6 +82,10 @@ public class SplitPaneContainer : ContentControl
         else if (e.PropertyName is nameof(SurfaceViewModel.AttentionVersion))
         {
             Dispatcher.BeginInvoke(ApplyAttentionPulse);
+        }
+        else if (e.PropertyName is nameof(SurfaceViewModel.BrowserNavigationVersion))
+        {
+            Dispatcher.BeginInvoke(NavigateBrowserLeaves);
         }
     }
 
@@ -225,6 +231,13 @@ public class SplitPaneContainer : ContentControl
         if (string.IsNullOrWhiteSpace(paneId) ||
             !_terminalCache.TryGetValue(paneId, out var terminal))
         {
+            if (!string.IsNullOrWhiteSpace(paneId) &&
+                _browserCache.TryGetValue(paneId, out var browser))
+            {
+                browser.Focus();
+                return true;
+            }
+
             return false;
         }
 
@@ -243,6 +256,8 @@ public class SplitPaneContainer : ContentControl
             return new Border { Background = Brushes.Transparent };
 
         var paneId = node.PaneId; // 为闭包捕获
+        if (_surface?.Surface.Kind == SurfaceKind.Browser)
+            return BuildBrowserLeaf(paneId);
 
         // 复用缓存中的终端（保留会话和滚动位置）
         if (!_terminalCache.TryGetValue(paneId, out var terminal))
@@ -398,6 +413,88 @@ public class SplitPaneContainer : ContentControl
         container.MouseEnter += (_, _) => FocusTerminalPane(paneId, terminal);
         container.PreviewMouseDown += (_, _) => FocusTerminalPane(paneId, terminal);
         return container;
+    }
+
+    private UIElement BuildBrowserLeaf(string paneId)
+    {
+        if (_surface == null)
+            return new Border { Background = Brushes.Transparent };
+
+        if (!_browserCache.TryGetValue(paneId, out var browser))
+        {
+            browser = new BrowserControl
+            {
+                Focusable = true,
+            };
+            browser.CloseRequested += () => _surface?.ClosePane(paneId);
+            browser.Browser.PropertyChanged += (_, _) => SyncBrowserMetadata(browser);
+            _browserCache[paneId] = browser;
+        }
+        else
+        {
+            DetachFromParent(browser);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_surface.Surface.BrowserUrl) &&
+            !string.Equals(browser.Browser.Url, _surface.Surface.BrowserUrl, StringComparison.Ordinal))
+        {
+            browser.Navigate(_surface.Surface.BrowserUrl);
+        }
+        else if (string.IsNullOrWhiteSpace(browser.Browser.Url))
+            browser.Navigate(string.IsNullOrWhiteSpace(_surface.Surface.BrowserUrl)
+                ? "about:blank"
+                : _surface.Surface.BrowserUrl);
+
+        var container = new Border
+        {
+            Child = browser,
+            BorderBrush = paneId == _surface.FocusedPaneId
+                ? GetThemeBrush("AccentBrush")
+                : GetThemeBrush("BorderBrush"),
+            BorderThickness = new Thickness(1),
+        };
+        container.MouseEnter += (_, _) => _surface.FocusPane(paneId);
+        container.PreviewMouseDown += (_, _) =>
+        {
+            _surface.FocusPane(paneId);
+            browser.Focus();
+        };
+
+        return container;
+    }
+
+    private void SyncBrowserMetadata(BrowserControl browser)
+    {
+        if (_surface == null || _surface.Surface.Kind != SurfaceKind.Browser)
+            return;
+
+        _surface.Surface.BrowserUrl = browser.Browser.Url;
+        _surface.Surface.BrowserTitle = browser.Browser.Title;
+        _surface.Surface.BrowserHistory = browser.Browser.History.ToList();
+    }
+
+    private void NavigateBrowserLeaves()
+    {
+        if (_surface == null || _surface.Surface.Kind != SurfaceKind.Browser)
+            return;
+
+        foreach (var browser in _browserCache.Values)
+        {
+            if (!string.IsNullOrWhiteSpace(_surface.Surface.BrowserUrl) &&
+                !string.Equals(browser.Browser.Url, _surface.Surface.BrowserUrl, StringComparison.Ordinal))
+            {
+                browser.Navigate(_surface.Surface.BrowserUrl);
+            }
+        }
+    }
+
+    private static void DetachFromParent(UIElement element)
+    {
+        var oldParent = VisualTreeHelper.GetParent(element) as FrameworkElement;
+        if (oldParent is Border border)
+            border.Child = null;
+        else if (oldParent is Panel panel)
+            panel.Children.Remove(element);
     }
 
 

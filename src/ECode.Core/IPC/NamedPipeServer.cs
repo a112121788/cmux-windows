@@ -270,14 +270,9 @@ public static class NamedPipeClient
         }
 
         var sb = new StringBuilder(command);
-        if (args != null)
-        {
-            foreach (var kvp in args)
-            {
-                var value = kvp.Value.Contains(' ') ? $"\"{kvp.Value}\"" : kvp.Value;
-                sb.Append($" {kvp.Key}={value}");
-            }
-        }
+        if (args is { Count: > 0 })
+            sb.Append(' ').Append(JsonSerializer.Serialize(args));
+
         var requestLine = sb.ToString();
 
         Exception? last = null;

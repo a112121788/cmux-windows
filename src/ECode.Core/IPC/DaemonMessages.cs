@@ -26,6 +26,7 @@ public class DaemonRequest
     public string? PaneId { get; set; }
     public int? Cols { get; set; }
     public int? Rows { get; set; }
+    public string? WorkspaceId { get; set; }
     public string? WorkingDirectory { get; set; }
     public string? Command { get; set; }
     public string? Data { get; set; }
