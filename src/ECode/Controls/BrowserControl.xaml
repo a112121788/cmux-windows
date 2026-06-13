@@ -20,15 +20,18 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Column="0" Content="&#xE72B;" FontFamily="Segoe MDL2 Assets"
+            <Button Grid.Column="0" x:Name="BackButton"
+                    Content="&#xE72B;" FontFamily="Segoe MDL2 Assets"
                     Style="{StaticResource ECodeButton}" Click="Back_Click"
                     Width="32" Height="28" Padding="0" Margin="4,0,0,0" FontSize="12" />
 
-            <Button Grid.Column="1" Content="&#xE72A;" FontFamily="Segoe MDL2 Assets"
+            <Button Grid.Column="1" x:Name="ForwardButton"
+                    Content="&#xE72A;" FontFamily="Segoe MDL2 Assets"
                     Style="{StaticResource ECodeButton}" Click="Forward_Click"
                     Width="32" Height="28" Padding="0" FontSize="12" />
 
-            <Button Grid.Column="2" Content="&#xE72C;" FontFamily="Segoe MDL2 Assets"
+            <Button Grid.Column="2" x:Name="ReloadButton"
+                    Content="&#xE72C;" FontFamily="Segoe MDL2 Assets"
                     Style="{StaticResource ECodeButton}" Click="Reload_Click"
                     Width="32" Height="28" Padding="0" FontSize="12" />
 
@@ -50,6 +53,7 @@
 
         <!-- WebView2 -->
         <wv2:WebView2 Grid.Row="1" x:Name="WebView"
+                      NavigationStarting="WebView_NavigationStarting"
                       NavigationCompleted="WebView_NavigationCompleted"
                       SourceChanged="WebView_SourceChanged" />
     </Grid>

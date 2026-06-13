@@ -108,6 +108,7 @@
 | `src/ECode/ViewModels/MainViewModel.cs` | `MainViewModel : ObservableObject` | 顶层：管理项目集合 + 侧边栏（Visible/Width/CompactSidebar）；命令 `CreateNewWorkspace / DuplicateWorkspace / CloseWorkspace / SelectWorkspace / NextWorkspace / PreviousWorkspace / ToggleSidebar / ToggleCompactSidebar / ToggleNotificationPanel / JumpToLatestUnread / MarkAllNotificationsRead`；`HandlePipeCommand` 集中分派 CLI 命令，含 `CONFIG.RELOAD` 事件桥接；`SaveSession / RestoreSession / CloneSplitNode` |
 | `src/ECode/ViewModels/WorkspaceViewModel.cs` | `WorkspaceViewModel : ObservableObject, IDisposable` | `Workspace` 包装；定时器 5s 刷新 `GitBranch / DetectedAgent`（WMI）；`CreateNewSurface / CloseSurface / NextSurface / PreviousSurface / RefreshInfo`；图标字形自动判断字体（Segoe MDL2 Assets vs Segoe UI Emoji） |
 | `src/ECode/ViewModels/SurfaceViewModel.cs` | `SurfaceViewModel : ObservableObject, IDisposable` | **关键**：`SplitNode` ↔ `TerminalSession` 双向绑定；`StartSession` → 守护进程优先（异步 attach + 拉快照 + 300ms 后 CR 触发重绘）+ 失败回退本地；`OnDaemonDisconnected` 自动回退；`SplitFocused / ClosePane / FocusPane / FocusNextPane / FocusPreviousPane / ToggleZoom / EqualizePanes / OpenPaneWithShell`；`CapturePaneTranscript / CaptureAllPaneTranscripts / CapturePaneSnapshotsForPersistence`；`RegisterCommandSubmission / TryHandlePaneCommand`（Agent 拦截） |
+| `src/ECode/ViewModels/BrowserPaneViewModel.cs` | `BrowserPaneViewModel : ObservableObject` | Browser pane 状态：`Url / Title / DisplayTitle / IsLoading / CanGoBack / CanGoForward / IsWebViewAvailable / ErrorMessage / NavigationVersion / History`；`BeginNavigation / CompleteNavigation / UpdateNavigationState / SetWebViewUnavailable / NormalizeUrl` |
 
 ### 8.3 控件
 
@@ -120,7 +121,7 @@
 | `src/ECode/Controls/NotificationPanel.xaml(.cs)` | `NotificationPanel` | 通知列表 + 标记已读 |
 | `src/ECode/Controls/SnippetPicker.xaml(.cs)` | `SnippetPicker` | 代码片段选择 + `{{key}}` 占位符填写 |
 | `src/ECode/Controls/WorkspaceSidebarItem.xaml(.cs)` | `WorkspaceSidebarItem` | 项目项 UI |
-| `src/ECode/Controls/BrowserControl.xaml(.cs)` | `BrowserControl` | WebView2 包装（Session Vault 浏览器视图） |
+| `src/ECode/Controls/BrowserControl.xaml(.cs)` | `BrowserControl` | WebView2 包装；维护 `BrowserPaneViewModel`，同步 NavigationStarting/Completed、SourceChanged、DocumentTitleChanged 与 HistoryChanged |
 
 ### 8.4 视图（顶级 Window / Dialog）
 
