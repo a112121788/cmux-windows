@@ -102,7 +102,7 @@
 
 | 文件 | 类型 | 说明 |
 |---|---|---|
-| `src/ECode/ViewModels/MainViewModel.cs` | `MainViewModel : ObservableObject` | 顶层：管理项目集合 + 侧边栏（Visible/Width/CompactSidebar）；命令 `CreateNewWorkspace / DuplicateWorkspace / CloseWorkspace / SelectWorkspace / NextWorkspace / PreviousWorkspace / ToggleSidebar / ToggleCompactSidebar / ToggleNotificationPanel / JumpToLatestUnread / MarkAllNotificationsRead`；`HandlePipeCommand` 集中分派 CLI 命令；`SaveSession / RestoreSession / CloneSplitNode` |
+| `src/ECode/ViewModels/MainViewModel.cs` | `MainViewModel : ObservableObject` | 顶层：管理项目集合 + 侧边栏（Visible/Width/CompactSidebar）；命令 `CreateNewWorkspace / DuplicateWorkspace / CloseWorkspace / SelectWorkspace / NextWorkspace / PreviousWorkspace / ToggleSidebar / ToggleCompactSidebar / ToggleNotificationPanel / JumpToLatestUnread / MarkAllNotificationsRead`；`HandlePipeCommand` 集中分派 CLI 命令，含 `CONFIG.RELOAD` 事件桥接；`SaveSession / RestoreSession / CloneSplitNode` |
 | `src/ECode/ViewModels/WorkspaceViewModel.cs` | `WorkspaceViewModel : ObservableObject, IDisposable` | `Workspace` 包装；定时器 5s 刷新 `GitBranch / DetectedAgent`（WMI）；`CreateNewSurface / CloseSurface / NextSurface / PreviousSurface / RefreshInfo`；图标字形自动判断字体（Segoe MDL2 Assets vs Segoe UI Emoji） |
 | `src/ECode/ViewModels/SurfaceViewModel.cs` | `SurfaceViewModel : ObservableObject, IDisposable` | **关键**：`SplitNode` ↔ `TerminalSession` 双向绑定；`StartSession` → 守护进程优先（异步 attach + 拉快照 + 300ms 后 CR 触发重绘）+ 失败回退本地；`OnDaemonDisconnected` 自动回退；`SplitFocused / ClosePane / FocusPane / FocusNextPane / FocusPreviousPane / ToggleZoom / EqualizePanes / OpenPaneWithShell`；`CapturePaneTranscript / CaptureAllPaneTranscripts / CapturePaneSnapshotsForPersistence`；`RegisterCommandSubmission / TryHandlePaneCommand`（Agent 拦截） |
 
@@ -113,7 +113,7 @@
 | `src/ECode/Controls/TerminalControl.cs` | `TerminalControl : FrameworkElement` | **核心渲染控件**：使用 `DrawingVisual` 渲染 `TerminalBuffer`（字符 / 属性 / 光标 / 选区 / URL 下划线 / 搜索高亮 / 可视响铃）；`AttachSession / DetachSession`；键盘输入（IME 兼容 / BracketedPaste / Ctrl+Alt+方向键 / 选区 / 双击 / 三击 / Ctrl+Insert 复制 / Shift+Insert 粘贴）；滚轮 + 触摸滚动；`Search`；事件：`FocusRequested / CommandSubmitted / CommandInterceptRequested / ClearRequested / SplitRequested / ZoomRequested / ClosePaneRequested / SearchRequested` |
 | `src/ECode/Controls/SplitPaneContainer.cs` | `SplitPaneContainer : ContentControl` | 把 `SplitNode` 递归渲染成嵌套 `Grid` + `GridSplitter`；缩放模式只渲染聚焦叶子；每个面板头含标题 + 关闭按钮 + 重命名菜单 |
 | `src/ECode/Controls/SurfaceTabBar.xaml(.cs)` | `SurfaceTabBar` | 标签页栏 + 内联搜索框（`Next/Previous`） |
-| `src/ECode/Controls/CommandPalette.xaml(.cs)` | `CommandPalette` | `Ctrl+Shift+P` 命令面板；支持额外 `SearchText`，用于 `ecode.json` keywords / action id 搜索 |
+| `src/ECode/Controls/CommandPalette.xaml(.cs)` | `CommandPalette` | `Ctrl+Shift+P` 命令面板；支持额外 `SearchText`，用于 `ecode.json` keywords / action id 搜索；打开状态下可刷新 items 并保留搜索词 |
 | `src/ECode/Controls/NotificationPanel.xaml(.cs)` | `NotificationPanel` | 通知列表 + 标记已读 |
 | `src/ECode/Controls/SnippetPicker.xaml(.cs)` | `SnippetPicker` | 代码片段选择 + `{{key}}` 占位符填写 |
 | `src/ECode/Controls/WorkspaceSidebarItem.xaml(.cs)` | `WorkspaceSidebarItem` | 项目项 UI |
@@ -123,7 +123,7 @@
 
 | 文件 | 类型 | 说明 |
 |---|---|---|
-| `src/ECode/Views/MainWindow.xaml(.cs)` | `MainWindow : Window` | 主窗口：侧边栏 + 主区；`OnLoaded` 恢复窗口几何；`OnClosing` 调 `ViewModel.SaveSession`；`OnSettingsChanged` 广播主题 / 字号到所有终端；`UpdateDaemonStatus` 用绿/灰点指示；大量 `OnKeyDown` 绑定应用级快捷键；命令面板打开时读取 `ecode.json` 并执行项目命令 |
+| `src/ECode/Views/MainWindow.xaml(.cs)` | `MainWindow : Window` | 主窗口：侧边栏 + 主区；`OnLoaded` 恢复窗口几何；`OnClosing` 调 `ViewModel.SaveSession`；`OnSettingsChanged` 广播主题 / 字号到所有终端；`UpdateDaemonStatus` 用绿/灰点指示；大量 `OnKeyDown` 绑定应用级快捷键；命令面板打开时读取 `ecode.json` 并执行项目命令；`Ctrl+Shift+,` / CLI 可热重载配置 |
 | `src/ECode/Views/SettingsWindow.xaml(.cs)` | `SettingsWindow` | 设置（外观 / 终端 / 行为 / 集合 / Agent 等标签页，93KB XAML） |
 | `src/ECode/Views/SessionVaultWindow.xaml(.cs)` | `SessionVaultWindow` | 脚本回放浏览器（依赖 WebView2） |
 | `src/ECode/Views/LogsWindow.xaml(.cs)` | `LogsWindow` | 命令日志查看（按日期 / 搜索） |
