@@ -19,6 +19,10 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 - 新增 `ecode reload-config` 与 `Ctrl+Shift+,`，可热重载 `ecode.json` 并刷新已打开的命令面板。
 - 标准化 daemon debug log 字段，统一输出 `ts/component/event/paneId`，便于 grep 串联 attach 与请求流程。
 - 当前 active surface tab 的关闭按钮改为常显，非 active tab 仍保持 hover 显示。
+- Surface tab 未读通知现在显示蓝点、蓝色边框和轻量 glow，便于从标签栏定位需要关注的会话。
+- Workspace sidebar 未读通知现在显示 badge 与最新未读正文，并修正最新通知行的 Grid row 位置。
+- 新增 `Ctrl+Shift+U` 跳转最新未读通知，跳转后目标 pane 会闪烁提示并标记通知为已读。
+- `NotificationPanel` 右键菜单支持跳转、标记已读、标记未读和复制内容。
 - 新增 `ResumeBinding` / `ResumeBindingFile` DTO，为 M2 会话恢复增强的 `resume.json` 打基础。
 - 新增 `ResumeBindingService`，支持 `resume.json` 的加载、保存、增删、按 Surface 查询与信任前缀更新。
 - `ResumeBindingService` 保存 `resume.json` 前会剔除 TOKEN、PASSWORD、SECRET、API_KEY 等敏感环境变量。
@@ -35,6 +39,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 
 - 统一 CLI `ecode version` 与 IPC `STATUS.version` 的版本读取逻辑，均使用程序集 informational version，并去掉 source revision 后缀。
 - CLI 调用主应用管道时改为发送 JSON 参数体，避免带空格或引号的 shell 命令被拆分。
+- 通知列表排序调整为未读优先、同组内按时间倒序；侧边栏最新通知文本只展示未读通知。
 
 ## [0.2.0] - 2026-06-12
 

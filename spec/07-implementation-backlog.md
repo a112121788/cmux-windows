@@ -66,12 +66,12 @@
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M1-A-01` | Pane 蓝环绘制（2px 蓝色光环） | `Controls/TerminalControl.cs` | `HasNotification=true` 时 Adorner 出现 |
-| `M1-A-02` | Surface tab 未读点 / glow | `Controls/SurfaceTabBar.xaml(.cs)` | 未读时显示蓝点 |
-| `M1-A-03` | Workspace sidebar 未读态 | `Controls/WorkspaceSidebarItem.xaml(.cs)` | 显示 badge + latest text |
-| `M1-A-04` | `Ctrl+Shift+U` 跳到最新未读 | `MainWindow.xaml.cs` | 跳转后目标 pane 闪烁 1 次 |
-| `M1-A-05` | 通知排序修正（最新未读优先） | `NotificationService.cs` | xUnit 测试通过 |
-| `M1-A-06` | `NotificationPanel` 右键菜单（标记已读 / 未读 / 复制内容） | `Controls/NotificationPanel.xaml.cs` | 全部菜单项可用 |
+| `M1-A-01` | `[x]` Pane 蓝环绘制（2px 蓝色光环） | `Controls/TerminalControl.cs` | `HasNotification=true` 时 Adorner 出现 |
+| `M1-A-02` | `[x]` Surface tab 未读点 / glow | `Controls/SurfaceTabBar.xaml(.cs)` | 未读时显示蓝点 |
+| `M1-A-03` | `[x]` Workspace sidebar 未读态 | `Controls/WorkspaceSidebarItem.xaml(.cs)` | 显示 badge + latest text |
+| `M1-A-04` | `[x]` `Ctrl+Shift+U` 跳到最新未读 | `MainWindow.xaml.cs` | 跳转后目标 pane 闪烁 1 次 |
+| `M1-A-05` | `[x]` 通知排序修正（最新未读优先） | `NotificationService.cs` | xUnit 测试通过 |
+| `M1-A-06` | `[x]` `NotificationPanel` 右键菜单（标记已读 / 未读 / 复制内容） | `Controls/NotificationPanel.xaml.cs` | 全部菜单项可用 |
 
 ### 包 B：基础交互
 

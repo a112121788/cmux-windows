@@ -173,14 +173,14 @@ public class NotificationService
     }
 
     /// <summary>
-    /// 获取指定项目的最新通知文本（用于侧边栏显示）。
+    /// 获取指定项目的最新未读通知文本（用于侧边栏未读态显示）。
     /// </summary>
     public string? GetLatestText(string workspaceId)
     {
         lock (_lock)
         {
             var latest = _notifications
-                .Where(n => n.WorkspaceId == workspaceId)
+                .Where(n => n.WorkspaceId == workspaceId && !n.IsRead)
                 .OrderByDescending(n => n.Timestamp)
                 .FirstOrDefault();
             return latest?.Body;

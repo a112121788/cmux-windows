@@ -102,6 +102,12 @@
                             <Setter TargetName="unreadDot" Property="Visibility" Value="Visible" />
                             <Setter TargetName="tabBorder" Property="BorderBrush"
                                     Value="{StaticResource NotificationBrush}" />
+                            <Setter TargetName="tabBorder" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect BlurRadius="10" ShadowDepth="0"
+                                                      Color="#FF1FA0FF" Opacity="0.45" />
+                                </Setter.Value>
+                            </Setter>
                         </DataTrigger>
                         <!-- Hover effect -->
                         <Trigger SourceName="tabBorder" Property="IsMouseOver" Value="True">

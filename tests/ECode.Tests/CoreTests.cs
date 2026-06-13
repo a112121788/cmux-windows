@@ -127,13 +127,30 @@ public class NotificationServiceTests
         count.Should().Be(1);
     }
 
+    [Fact]
+    public void GetLatestText_ReturnsNewestUnreadForWorkspace()
+    {
+        var service = new NotificationService();
+        service.Notifications.Add(CreateNotification("newest-read", isRead: true, timestamp: new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc), workspaceId: "workspace-1", body: "read"));
+        service.Notifications.Add(CreateNotification("older-unread", isRead: false, timestamp: new DateTime(2026, 1, 1, 10, 0, 0, DateTimeKind.Utc), workspaceId: "workspace-1", body: "older unread"));
+        service.Notifications.Add(CreateNotification("newest-unread", isRead: false, timestamp: new DateTime(2026, 1, 1, 11, 0, 0, DateTimeKind.Utc), workspaceId: "workspace-1", body: "newest unread"));
+        service.Notifications.Add(CreateNotification("other-workspace", isRead: false, timestamp: new DateTime(2026, 1, 1, 13, 0, 0, DateTimeKind.Utc), workspaceId: "workspace-2", body: "other"));
+
+        service.GetLatestText("workspace-1").Should().Be("newest unread");
+
+        service.MarkWorkspaceAsRead("workspace-1");
+
+        service.GetLatestText("workspace-1").Should().BeNull();
+    }
+
     private static TerminalNotification CreateNotification(
         string id,
         bool isRead,
         DateTime timestamp,
         string workspaceId = "workspace-1",
         string surfaceId = "surface-1",
-        string paneId = "pane-1") => new()
+        string paneId = "pane-1",
+        string body = "body") => new()
     {
         Id = id,
         WorkspaceId = workspaceId,
@@ -141,7 +158,7 @@ public class NotificationServiceTests
         PaneId = paneId,
         IsRead = isRead,
         Title = id,
-        Body = "body",
+        Body = body,
         Timestamp = timestamp,
         Source = NotificationSource.Cli,
     };
