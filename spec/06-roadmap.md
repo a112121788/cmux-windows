@@ -529,7 +529,7 @@ public class Surface
 | M3-T02 | SessionState 扩展 | `kind/browserUrl/browserTitle/browserHistory`（已实现，旧文件默认 Terminal） | `Models/SessionState.cs`、`SessionPersistenceService.cs` |
 | M3-T03 | `BrowserPaneViewModel` | URL、Title、CanGoBack、CanGoForward、Loading（已实现） | `src/ECode/ViewModels/BrowserPaneViewModel.cs` |
 | M3-T04 | `BrowserControl` 升级 | 地址栏、back/forward/reload/devtools | `Controls/BrowserControl.xaml(.cs)` |
-| M3-T05 | SplitPaneContainer 支持 browser | `BuildLeaf` 分支 | `Controls/SplitPaneContainer.cs` |
+| M3-T05 | SplitPaneContainer 支持 browser | `BuildLeaf` 分支（已实现） | `Controls/SplitPaneContainer.cs` |
 | M3-T06 | CLI browser open | `ecode browser open|open-split|new <url>` | `ECode.Cli/Program.cs`、`MainViewModel.cs` |
 | M3-T07 | ecode.json browser surface | `type:"browser"` parser | `EcodeJsonService.cs` |
 | M3-T08 | 持久化恢复 | 重开后恢复 URL 与 history | `SessionPersistenceService.cs` |

@@ -26,6 +26,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 - 启动 shell 时注入 `ECODE_WORKSPACE_ID`，本地 ConPTY 与 daemon 托管会话均可读取当前 workspace id。
 - 新增 Browser surface 基础数据模型，`session.json` 可保存 `kind/browserUrl/browserTitle/browserHistory`，旧会话默认按 Terminal 恢复。
 - 新增 `BrowserPaneViewModel`，为 Browser pane 暴露 URL、标题、加载中、前进/后退能力与历史状态。
+- `SplitPaneContainer` 现在可渲染 Browser surface，且 WebView2 Runtime 缺失时会显示下载提示。
 
 ### Changed
 

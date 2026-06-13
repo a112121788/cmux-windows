@@ -51,10 +51,36 @@
                     Width="32" Height="28" Padding="0" Margin="0,0,4,0" FontSize="10" />
         </Grid>
 
-        <!-- WebView2 -->
-        <wv2:WebView2 Grid.Row="1" x:Name="WebView"
-                      NavigationStarting="WebView_NavigationStarting"
-                      NavigationCompleted="WebView_NavigationCompleted"
-                      SourceChanged="WebView_SourceChanged" />
+        <Grid Grid.Row="1">
+            <!-- WebView2 -->
+            <wv2:WebView2 x:Name="WebView"
+                          NavigationStarting="WebView_NavigationStarting"
+                          NavigationCompleted="WebView_NavigationCompleted"
+                          SourceChanged="WebView_SourceChanged" />
+
+            <Border x:Name="ErrorOverlay"
+                    Visibility="Collapsed"
+                    Background="{StaticResource BackgroundBrush}"
+                    Padding="32">
+                <StackPanel MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="无法启动内置浏览器"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource ForegroundBrush}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ErrorMessageText"
+                               TextWrapping="Wrap"
+                               Margin="0,12,0,16"
+                               Foreground="{StaticResource ForegroundDimBrush}"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center" />
+                    <Button Content="下载 WebView2 Runtime"
+                            Style="{StaticResource ECodeButton}"
+                            HorizontalAlignment="Center"
+                            Padding="14,8"
+                            Click="DownloadWebView2_Click" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

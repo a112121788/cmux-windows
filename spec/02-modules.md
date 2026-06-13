@@ -107,7 +107,7 @@
 |---|---|---|
 | `src/ECode/ViewModels/MainViewModel.cs` | `MainViewModel : ObservableObject` | 顶层：管理项目集合 + 侧边栏（Visible/Width/CompactSidebar）；命令 `CreateNewWorkspace / DuplicateWorkspace / CloseWorkspace / SelectWorkspace / NextWorkspace / PreviousWorkspace / ToggleSidebar / ToggleCompactSidebar / ToggleNotificationPanel / JumpToLatestUnread / MarkAllNotificationsRead`；`HandlePipeCommand` 集中分派 CLI 命令，含 `CONFIG.RELOAD` 事件桥接；`SaveSession / RestoreSession / CloneSplitNode` |
 | `src/ECode/ViewModels/WorkspaceViewModel.cs` | `WorkspaceViewModel : ObservableObject, IDisposable` | `Workspace` 包装；定时器 5s 刷新 `GitBranch / DetectedAgent`（WMI）；`CreateNewSurface / CloseSurface / NextSurface / PreviousSurface / RefreshInfo`；图标字形自动判断字体（Segoe MDL2 Assets vs Segoe UI Emoji） |
-| `src/ECode/ViewModels/SurfaceViewModel.cs` | `SurfaceViewModel : ObservableObject, IDisposable` | **关键**：`SplitNode` ↔ `TerminalSession` 双向绑定；`StartSession` → 守护进程优先（异步 attach + 拉快照 + 300ms 后 CR 触发重绘）+ 失败回退本地；`OnDaemonDisconnected` 自动回退；`SplitFocused / ClosePane / FocusPane / FocusNextPane / FocusPreviousPane / ToggleZoom / EqualizePanes / OpenPaneWithShell`；`CapturePaneTranscript / CaptureAllPaneTranscripts / CapturePaneSnapshotsForPersistence`；`RegisterCommandSubmission / TryHandlePaneCommand`（Agent 拦截） |
+| `src/ECode/ViewModels/SurfaceViewModel.cs` | `SurfaceViewModel : ObservableObject, IDisposable` | **关键**：Terminal surface 中 `SplitNode` ↔ `TerminalSession` 双向绑定；Browser surface 不启动终端进程，由 `BrowserControl` 托管；`StartSession` → 守护进程优先（异步 attach + 拉快照 + 300ms 后 CR 触发重绘）+ 失败回退本地；`OnDaemonDisconnected` 自动回退；`SplitFocused / ClosePane / FocusPane / FocusNextPane / FocusPreviousPane / ToggleZoom / EqualizePanes / OpenPaneWithShell`；`CapturePaneTranscript / CaptureAllPaneTranscripts / CapturePaneSnapshotsForPersistence`；`RegisterCommandSubmission / TryHandlePaneCommand`（Agent 拦截） |
 | `src/ECode/ViewModels/BrowserPaneViewModel.cs` | `BrowserPaneViewModel : ObservableObject` | Browser pane 状态：`Url / Title / DisplayTitle / IsLoading / CanGoBack / CanGoForward / IsWebViewAvailable / ErrorMessage / NavigationVersion / History`；`BeginNavigation / CompleteNavigation / UpdateNavigationState / SetWebViewUnavailable / NormalizeUrl` |
 
 ### 8.3 控件
@@ -115,13 +115,13 @@
 | 文件 | 类型 | 说明 |
 |---|---|---|
 | `src/ECode/Controls/TerminalControl.cs` | `TerminalControl : FrameworkElement` | **核心渲染控件**：使用 `DrawingVisual` 渲染 `TerminalBuffer`（字符 / 属性 / 光标 / 选区 / URL 下划线 / 搜索高亮 / 可视响铃）；`AttachSession / DetachSession`；键盘输入（IME 兼容 / BracketedPaste / Ctrl+Alt+方向键 / 选区 / 双击 / 三击 / Ctrl+Insert 复制 / Shift+Insert 粘贴）；滚轮 + 触摸滚动；`Search`；事件：`FocusRequested / CommandSubmitted / CommandInterceptRequested / ClearRequested / SplitRequested / ZoomRequested / ClosePaneRequested / SearchRequested` |
-| `src/ECode/Controls/SplitPaneContainer.cs` | `SplitPaneContainer : ContentControl` | 把 `SplitNode` 递归渲染成嵌套 `Grid` + `GridSplitter`；缩放模式只渲染聚焦叶子；每个面板头含标题 + 关闭按钮 + 重命名菜单 |
+| `src/ECode/Controls/SplitPaneContainer.cs` | `SplitPaneContainer : ContentControl` | 把 `SplitNode` 递归渲染成嵌套 `Grid` + `GridSplitter`；Terminal leaf 渲染 `TerminalControl`，Browser leaf 渲染 `BrowserControl`；缩放模式只渲染聚焦叶子；每个终端面板头含标题 + 关闭按钮 + 重命名菜单 |
 | `src/ECode/Controls/SurfaceTabBar.xaml(.cs)` | `SurfaceTabBar` | 标签页栏 + 内联搜索框（`Next/Previous`）；支持 Surface 拖拽重排、未读点、右键菜单；active tab 关闭按钮常显，非 active tab hover 显示 |
 | `src/ECode/Controls/CommandPalette.xaml(.cs)` | `CommandPalette` | `Ctrl+Shift+P` 命令面板；支持额外 `SearchText`，用于 `ecode.json` keywords / action id 搜索；打开状态下可刷新 items 并保留搜索词 |
 | `src/ECode/Controls/NotificationPanel.xaml(.cs)` | `NotificationPanel` | 通知列表 + 标记已读 |
 | `src/ECode/Controls/SnippetPicker.xaml(.cs)` | `SnippetPicker` | 代码片段选择 + `{{key}}` 占位符填写 |
 | `src/ECode/Controls/WorkspaceSidebarItem.xaml(.cs)` | `WorkspaceSidebarItem` | 项目项 UI |
-| `src/ECode/Controls/BrowserControl.xaml(.cs)` | `BrowserControl` | WebView2 包装；维护 `BrowserPaneViewModel`，同步 NavigationStarting/Completed、SourceChanged、DocumentTitleChanged 与 HistoryChanged |
+| `src/ECode/Controls/BrowserControl.xaml(.cs)` | `BrowserControl` | WebView2 包装；维护 `BrowserPaneViewModel`，同步 NavigationStarting/Completed、SourceChanged、DocumentTitleChanged 与 HistoryChanged；WebView2 Runtime 缺失时显示下载提示 |
 
 ### 8.4 视图（顶级 Window / Dialog）
 

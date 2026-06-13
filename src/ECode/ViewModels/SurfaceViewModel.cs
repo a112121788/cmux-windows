@@ -57,6 +57,8 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
 
     public event Action<string>? WorkingDirectoryChanged;
 
+    public bool IsBrowser => Surface.Kind == SurfaceKind.Browser;
+
     /// <summary>Gets the shell process PID from the focused pane session.</summary>
     public int? ShellPid
     {
@@ -86,22 +88,26 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         daemon.BellReceived += OnDaemonBellReceived;
         daemon.Disconnected += OnDaemonDisconnected;
 
-        // 为所有叶子节点启动终端会话
-        foreach (var leaf in _rootNode.GetLeaves())
+        // Browser surface 由 BrowserControl/WebView2 托管，不启动终端进程。
+        if (!IsBrowser)
         {
-            if (leaf.PaneId != null)
+            // 为所有叶子节点启动终端会话
+            foreach (var leaf in _rootNode.GetLeaves())
             {
-                Surface.PaneSnapshots.TryGetValue(leaf.PaneId, out var snapshot);
-                if (snapshot?.CommandHistory is { Count: > 0 })
+                if (leaf.PaneId != null)
                 {
-                    _paneCommandHistory[leaf.PaneId] = snapshot.CommandHistory
-                        .Select(App.CommandLogService.SanitizeCommandForStorage)
-                        .Where(c => !string.IsNullOrWhiteSpace(c))
-                        .Cast<string>()
-                        .ToList();
-                }
+                    Surface.PaneSnapshots.TryGetValue(leaf.PaneId, out var snapshot);
+                    if (snapshot?.CommandHistory is { Count: > 0 })
+                    {
+                        _paneCommandHistory[leaf.PaneId] = snapshot.CommandHistory
+                            .Select(App.CommandLogService.SanitizeCommandForStorage)
+                            .Where(c => !string.IsNullOrWhiteSpace(c))
+                            .Cast<string>()
+                            .ToList();
+                    }
 
-                StartSession(leaf.PaneId, snapshot?.WorkingDirectory, snapshot, snapshot?.Shell);
+                    StartSession(leaf.PaneId, snapshot?.WorkingDirectory, snapshot, snapshot?.Shell);
+                }
             }
         }
 
@@ -591,6 +597,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
 
     public void SplitFocused(SplitDirection direction, string? shell = null)
     {
+        if (IsBrowser) return;
         if (FocusedPaneId == null) return;
 
         var node = RootNode.FindNode(FocusedPaneId);

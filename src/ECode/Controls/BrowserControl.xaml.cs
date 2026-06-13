@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using ECode.ViewModels;
 using Microsoft.Web.WebView2.Core;
+using System.Diagnostics;
 
 namespace ECode.Controls;
 
@@ -29,6 +30,7 @@ public partial class BrowserControl : UserControl
         try
         {
             await WebView.EnsureCoreWebView2Async();
+            HideErrorOverlay();
             WebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
             WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
             WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
@@ -45,8 +47,8 @@ public partial class BrowserControl : UserControl
         }
         catch (Exception ex)
         {
-            Browser.SetWebViewUnavailable("WebView2 初始化失败：" + ex.Message);
-            System.Diagnostics.Debug.WriteLine($"WebView2 init failed: {ex.Message}");
+            ShowWebViewError("请安装或修复 Microsoft Edge WebView2 Runtime 后重试。\n\n" + ex.Message);
+            Debug.WriteLine($"WebView2 init failed: {ex.Message}");
         }
     }
 
@@ -151,6 +153,21 @@ public partial class BrowserControl : UserControl
         WebView.CoreWebView2?.Reload();
     }
 
+    private void DownloadWebView2_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://developer.microsoft.com/microsoft-edge/webview2/")
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowWebViewError("无法打开下载页面，请手动访问 https://developer.microsoft.com/microsoft-edge/webview2/\n\n" + ex.Message);
+        }
+    }
+
     private void CloseBrowser_Click(object sender, RoutedEventArgs e)
     {
         CloseRequested?.Invoke();
@@ -212,6 +229,20 @@ public partial class BrowserControl : UserControl
         BackButton.IsEnabled = Browser.IsWebViewAvailable && Browser.CanGoBack;
         ForwardButton.IsEnabled = Browser.IsWebViewAvailable && Browser.CanGoForward;
         ReloadButton.IsEnabled = Browser.IsWebViewAvailable && !Browser.IsLoading;
+    }
+
+    private void ShowWebViewError(string message)
+    {
+        Browser.SetWebViewUnavailable(message);
+        ErrorMessageText.Text = message;
+        ErrorOverlay.Visibility = Visibility.Visible;
+        WebView.Visibility = Visibility.Collapsed;
+    }
+
+    private void HideErrorOverlay()
+    {
+        ErrorOverlay.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Visible;
     }
 }
 
