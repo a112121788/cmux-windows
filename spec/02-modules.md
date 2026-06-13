@@ -112,7 +112,7 @@
 |---|---|---|
 | `src/ECode/Controls/TerminalControl.cs` | `TerminalControl : FrameworkElement` | **核心渲染控件**：使用 `DrawingVisual` 渲染 `TerminalBuffer`（字符 / 属性 / 光标 / 选区 / URL 下划线 / 搜索高亮 / 可视响铃）；`AttachSession / DetachSession`；键盘输入（IME 兼容 / BracketedPaste / Ctrl+Alt+方向键 / 选区 / 双击 / 三击 / Ctrl+Insert 复制 / Shift+Insert 粘贴）；滚轮 + 触摸滚动；`Search`；事件：`FocusRequested / CommandSubmitted / CommandInterceptRequested / ClearRequested / SplitRequested / ZoomRequested / ClosePaneRequested / SearchRequested` |
 | `src/ECode/Controls/SplitPaneContainer.cs` | `SplitPaneContainer : ContentControl` | 把 `SplitNode` 递归渲染成嵌套 `Grid` + `GridSplitter`；缩放模式只渲染聚焦叶子；每个面板头含标题 + 关闭按钮 + 重命名菜单 |
-| `src/ECode/Controls/SurfaceTabBar.xaml(.cs)` | `SurfaceTabBar` | 标签页栏 + 内联搜索框（`Next/Previous`） |
+| `src/ECode/Controls/SurfaceTabBar.xaml(.cs)` | `SurfaceTabBar` | 标签页栏 + 内联搜索框（`Next/Previous`）；支持 Surface 拖拽重排、未读点、右键菜单；active tab 关闭按钮常显，非 active tab hover 显示 |
 | `src/ECode/Controls/CommandPalette.xaml(.cs)` | `CommandPalette` | `Ctrl+Shift+P` 命令面板；支持额外 `SearchText`，用于 `ecode.json` keywords / action id 搜索；打开状态下可刷新 items 并保留搜索词 |
 | `src/ECode/Controls/NotificationPanel.xaml(.cs)` | `NotificationPanel` | 通知列表 + 标记已读 |
 | `src/ECode/Controls/SnippetPicker.xaml(.cs)` | `SnippetPicker` | 代码片段选择 + `{{key}}` 占位符填写 |

@@ -285,8 +285,8 @@ ecode-cli/ecode.exe        yes     72.8    ...
 | M1-B02 | Workspace 重排 | 侧栏拖拽排序 | `MainWindow.xaml.cs`、`WorkspaceSidebarItem.xaml.cs` |
 | M1-B03 | 文件拖入终端 | drop 文件时写入 quoted path | `TerminalControl.cs` |
 | M1-B04 | 图片拖入远期占位 | 本期仅写入路径，不做 scp upload | `TerminalControl.cs` |
-| M1-B05 | 右键菜单 | Workspace rename / close / duplicate；Notification read/unread | `MainWindow.xaml.cs`、`NotificationPanel.xaml.cs` |
-| M1-B06 | Close active tab 按钮常显 | 当前 active surface close 按钮不只 hover 出现（已实现） | `SurfaceTabBar.xaml` |
+| M1-B05 | Close active tab 按钮常显 | 当前 active surface close 按钮不只 hover 出现（已实现） | `SurfaceTabBar.xaml` |
+| M1-B06 | 设置面板重排 | 按“外观 / 终端 / 行为 / 集合 / Agent / 高级”重排，并新增“自定义命令”页 | `SettingsWindow.xaml` |
 
 #### M1-C `ecode.json` 基础
 
