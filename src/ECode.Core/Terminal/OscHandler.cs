@@ -2,8 +2,7 @@ namespace ECode.Core.Terminal;
 
 /// <summary>
 /// 处理 OSC（操作系统命令）终端序列。
-/// 专门检测 Claude Code、Codex 等 AI 编码代理使用的
-/// 通知序列（OSC 9、99、777）。
+/// 检测常见终端通知序列（OSC 9、99、777），用于长任务和自动化脚本提醒。
 /// </summary>
 public class OscHandler
 {

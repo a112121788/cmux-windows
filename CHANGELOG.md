@@ -53,7 +53,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
   - 守护进程：`cmux-daemon.exe` → `ecode-daemon.exe`
   - 解决方案：`Cmux.sln` → `ECode.sln`
   - C# 根命名空间：`Cmux.*` → `ECode.*`；类名 `CmuxSettings` → `ECodeSettings`
-  - MCP / Agent 工具名：`cmux_status` / `cmux_pane_*` / `cmux_workspace_*` / `cmux_surface_*` / `cmux_split_*` / `cmux_notify` / `cmux_scaffold_agents_files` → `ecode_*`
+  - 自动化工具名：`cmux_status` / `cmux_pane_*` / `cmux_workspace_*` / `cmux_surface_*` / `cmux_split_*` / `cmux_notify` → `ecode_*`
 - 命名管道与互斥体：
   - `\\.\pipe\cmux`、`\\.\pipe\cmux-{tag}` → `\\.\pipe\ecode`、`\\.\pipe\ecode-{tag}`
   - `\\.\pipe\cmux-daemon` → `\\.\pipe\ecode-daemon`
@@ -79,12 +79,12 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 2. 卸载旧安装器；删除 `C:\Program Files\ECode` 旧安装目录（若已存在）。
 3. 安装新版 `0.1.x`（`ecode-setup.exe` 或 `ecode-cli`）后，运行时数据只写入 `%USERPROFILE%\.ecode\`；旧 `%LOCALAPPDATA%\ecode\` / `%LOCALAPPDATA%\cmux\` 不再自动读取或迁移。
 4. 自动化脚本中的 `cmux status` 等命令在 CLI 顶层继续可运行，但建议改写为 `ecode ...`。
-5. Agent 集成方需更新 MCP 工具调用名为 `ecode_*`。
+5. 自动化集成方需更新工具调用名为 `ecode_*`。
 
 ### Known issues
 
 - 资产（`assets/screenshots/*.jpg`）的 alt 文本可能仍含“cmux”水印（计划在 `M7-A` 文档站同步刷新）。
-- 旧注册表键（`HKCU\Software\Cmux\...`，计划 M6 hooks setup 时落地）将在 M6 阶段统一。
+- 旧注册表键（`HKCU\Software\Cmux\...`，计划 M6 setup/installer 阶段统一）将在 M6 阶段处理。
 
 ---
 

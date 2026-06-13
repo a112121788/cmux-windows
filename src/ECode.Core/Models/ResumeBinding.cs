@@ -64,7 +64,6 @@ public sealed class ResumeBinding
 
 public static class ResumeBindingKinds
 {
-    public const string Agent = "agent";
     public const string Tmux = "tmux";
     public const string Custom = "custom";
 }

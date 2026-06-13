@@ -10,6 +10,7 @@
 
 ## 0. 通用约束
 
+- 产品方向调整为 **SuperTerminal**：优先服务高强度终端、多项目分屏、浏览器预览、脚本化控制、会话恢复与 Windows 原生集成；不再规划专用 AI 运行时 / 外部工具适配器。
 - 任何 backlog 落地前必须先在 `spec/` 中补齐协议 / 数据结构 / UI 行为描述。
 - 复杂功能必须拆成 Core 层 PR、UI 层 PR、CLI/API 层 PR、测试/文档 PR。
 - 同一个 backlog 不应同时跨 2 个里程碑；如发现跨里程碑，先拆。
@@ -81,7 +82,7 @@
 | `M1-B-03` | 拖入文件 / 图片到终端 | `Controls/TerminalControl.cs` | 输出正确 quoted path |
 | `M1-B-04` | Workspace 右键菜单（重命名 / 关闭 / 复制 ID） | `MainWindow.xaml.cs` | 三项操作可用 |
 | `M1-B-05` | `[x]` Close active tab 按钮常显 | `Controls/SurfaceTabBar.xaml` | 视觉对比 macOS 截图 |
-| `M1-B-06` | 设置面板按"外观 / 终端 / 行为 / 集合 / Agent / 高级"重排 | `Views/SettingsWindow.xaml` | 新增“自定义命令”页 |
+| `M1-B-06` | 设置面板按"外观 / 终端 / 行为 / 键盘 / 高级"重排 | `Views/SettingsWindow.xaml` | 新增“自定义命令”页 |
 
 ### 包 C：`ecode.json` 基础
 
@@ -111,8 +112,8 @@
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
 | `M2-B-01` | 恢复确认 UI（未信任 binding 提示条） | `Controls/SplitPaneContainer.cs` 或 `TerminalControl.cs` | 红框 + “可恢复” 按钮 |
-| `M2-B-02` | `AutoResumeAgentSessions` 设置项 | `ECodeSettings.cs`、`SettingsWindow.xaml` | 关闭后所有 agent resume 不自动执行 |
-| `M2-B-03` | 进程检测（tasklist 解析 tmux） | `ECode.Core/Services/ResumeProcessDetector.cs` | 单元测试：含/不含 tmux 路径 |
+| `M2-B-02` | 自动恢复设置项（全局开关 + 每条 binding 显式信任） | `ECodeSettings.cs`、`SettingsWindow.xaml` | 关闭后所有 resume binding 均不自动执行 |
+| `M2-B-03` | 进程检测（tasklist 解析 tmux / shell 子进程） | `ECode.Core/Services/ResumeProcessDetector.cs` | 单元测试：含/不含 tmux 与 shell 路径 |
 
 ### 包 C：CLI
 
@@ -120,14 +121,6 @@
 |---|---|---|---|
 | `M2-C-01` | `[x]` CLI `surface resume {set,show,clear}` | `ECode.Cli/Program.cs`、`MainViewModel.cs` | build + ResumeBinding service 测试通过 |
 | `M2-C-02` | CLI `restore-session` / `Ctrl+Shift+O` 入口 | `MainWindow.xaml.cs` | UI 入口可用 |
-
-### 包 D：Agent hook 预留
-
-| ID | 标题 | 关联文件 | 验收 |
-|---|---|---|---|
-| `M2-D-01` | `ResumeBinding.Kind` 增加 `agent`，并预留 Codex/Claude/OpenCode session id 字段 | `ResumeBinding.cs`、`AgentConversationStoreService.cs` | 数据结构扩展；无业务实现 |
-
----
 
 ## M3 - 浏览器面板基础
 
@@ -222,17 +215,17 @@
 
 ---
 
-## M6 - Hooks、集成、安装与更新
+## M6 - 系统集成、安装与更新
 
-### 包 A：Hooks
+### 包 A：Shell / CLI 集成
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M6-A-01` | `ecode hooks setup` 框架（写注册表 / wrapper / PowerShell profile） | `ECode.Cli/Commands/HooksSetup.cs` | uninstall 可逆 |
-| `M6-A-02` | Claude Code adapter | 同上 | setup 后通知触发 |
-| `M6-A-03` | Codex adapter | 同上 | setup 后通知触发 |
-| `M6-A-04` | OpenCode adapter | 同上 | setup 后通知触发 |
-| `M6-A-05` | `ecode hooks status` / `ecode hooks uninstall <agent>` | 同上 | diff 输出可读 |
+| `M6-A-01` | PATH / shell profile setup（PowerShell、cmd） | `ECode.Cli/Commands/ShellSetup.cs` | install / uninstall 可逆 |
+| `M6-A-02` | PowerShell completion | `scripts/completions/ecode.ps1` | `ecode <Tab>` 可补全命令与 refs |
+| `M6-A-03` | Windows Terminal profile 导入 | `ECode.Cli/Commands/ProfileImport.cs` | 可导入配色 / 字体 / shell profile |
+| `M6-A-04` | `ecode doctor` 环境诊断 | `ECode.Cli/Program.cs` | 输出 ConPTY / WebView2 / PATH / daemon 状态 |
+| `M6-A-05` | `ecode setup status` / `ecode setup uninstall` | 同上 | diff 输出可读，卸载清理 PATH/profile 变更 |
 
 ### 包 B：安装与更新
 
@@ -310,4 +303,4 @@
 14. `M3-B-02`（已完成：BrowserControl 工具栏升级）
 15. `M3-C-02`（ecode.json browser surface 解析）
 
-> 进入 M4 / M5 前必须先冻结 v1 CLI 行为并完成 v1 contract 测试固化，避免 v2 协议破坏现有 agent 集成。
+> 进入 M4 / M5 前必须先冻结 v1 CLI 行为并完成 v1 contract 测试固化，避免 v2 协议破坏现有自动化脚本。

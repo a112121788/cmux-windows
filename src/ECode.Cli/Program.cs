@@ -318,7 +318,7 @@ public static class Program
                   --all             Show all bindings in the selected surface
                 resume set          Save resume command for focused/selected pane
                   --shell <cmd>     Command to run, or pass it as first positional arg
-                  --kind <kind>     agent | tmux | custom (default: custom)
+                  --kind <kind>     tmux | custom (default: custom)
                   --checkpoint <id> Optional checkpoint/session label
                   --cwd <path>      Working directory override
                   --trusted <bool>  Mark binding trusted for future restore

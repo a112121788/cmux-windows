@@ -205,7 +205,7 @@ public class DaemonMessageRoundTripTests
             Cols = 100,
             Rows = 30,
             WorkingDirectory = @"D:\work",
-            Title = "agent",
+            Title = "build",
             IsRunning = true,
             IsExisting = true,
         };
@@ -216,7 +216,7 @@ public class DaemonMessageRoundTripTests
         roundTripped.Cols.Should().Be(100);
         roundTripped.Rows.Should().Be(30);
         roundTripped.WorkingDirectory.Should().Be(@"D:\work");
-        roundTripped.Title.Should().Be("agent");
+        roundTripped.Title.Should().Be("build");
         roundTripped.IsRunning.Should().BeTrue();
         roundTripped.IsExisting.Should().BeTrue();
     }
@@ -332,9 +332,9 @@ public class ResumeBindingDtoTests
                     WorkspaceId = "workspace-1",
                     SurfaceId = "surface-1",
                     PaneId = "pane-1",
-                    Kind = ResumeBindingKinds.Agent,
+                    Kind = ResumeBindingKinds.Tmux,
                     Checkpoint = "work",
-                    Shell = "codex resume abc123",
+                    Shell = "tmux attach -t work",
                     WorkingDirectory = @"C:\repo",
                     Environment = new Dictionary<string, string>
                     {
@@ -342,7 +342,7 @@ public class ResumeBindingDtoTests
                     },
                     Trusted = true,
                     TrustReason = "user-approved-prefix",
-                    ApprovedPrefix = "codex resume",
+                    ApprovedPrefix = "tmux attach",
                     CreatedAtUtc = createdAt,
                     UpdatedAtUtc = updatedAt,
                 },
@@ -361,14 +361,14 @@ public class ResumeBindingDtoTests
         binding.WorkspaceId.Should().Be("workspace-1");
         binding.SurfaceId.Should().Be("surface-1");
         binding.PaneId.Should().Be("pane-1");
-        binding.Kind.Should().Be(ResumeBindingKinds.Agent);
+        binding.Kind.Should().Be(ResumeBindingKinds.Tmux);
         binding.Checkpoint.Should().Be("work");
-        binding.Shell.Should().Be("codex resume abc123");
+        binding.Shell.Should().Be("tmux attach -t work");
         binding.WorkingDirectory.Should().Be(@"C:\repo");
         binding.Environment.Should().ContainKey("SAFE_KEY").WhoseValue.Should().Be("value");
         binding.Trusted.Should().BeTrue();
         binding.TrustReason.Should().Be("user-approved-prefix");
-        binding.ApprovedPrefix.Should().Be("codex resume");
+        binding.ApprovedPrefix.Should().Be("tmux attach");
         binding.CreatedAtUtc.Should().Be(createdAt);
         binding.UpdatedAtUtc.Should().Be(updatedAt);
     }
@@ -425,7 +425,7 @@ public class ResumeBindingServiceTests
 
         loaded.Bindings.Should().ContainSingle();
         loaded.Bindings.Single().Id.Should().Be("binding-1");
-        loaded.Bindings.Single().Shell.Should().Be("codex resume abc123");
+        loaded.Bindings.Single().Shell.Should().Be("tmux attach -t work");
     }
 
     [Fact]
@@ -436,12 +436,12 @@ public class ResumeBindingServiceTests
         var binding = CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1");
 
         service.Add(binding);
-        binding.Shell = "codex resume updated";
+        binding.Shell = "tmux attach -t updated";
         service.Add(binding);
 
         var loaded = service.Load();
         loaded.Bindings.Should().ContainSingle();
-        loaded.Bindings.Single().Shell.Should().Be("codex resume updated");
+        loaded.Bindings.Single().Shell.Should().Be("tmux attach -t updated");
         loaded.Bindings.Single().UpdatedAtUtc.Should().BeAfter(loaded.Bindings.Single().CreatedAtUtc.AddTicks(-1));
     }
 
@@ -454,12 +454,12 @@ public class ResumeBindingServiceTests
         service.Add(CreateResumeBinding("old-2", "workspace-1", "surface-1", "pane-1", shell: "tmux attach -t old"));
         service.Add(CreateResumeBinding("other-pane", "workspace-1", "surface-1", "pane-2"));
 
-        var updated = service.SetForPane(CreateResumeBinding("", "workspace-1", "surface-1", "pane-1", shell: "codex resume new"));
+        var updated = service.SetForPane(CreateResumeBinding("", "workspace-1", "surface-1", "pane-1", shell: "tmux attach -t new"));
 
         updated.Id.Should().NotBeNullOrWhiteSpace();
         var loaded = service.Load().Bindings;
         loaded.Where(b => b.PaneId == "pane-1").Should().ContainSingle()
-            .Which.Shell.Should().Be("codex resume new");
+            .Which.Shell.Should().Be("tmux attach -t new");
         loaded.Should().Contain(b => b.Id == "other-pane");
     }
 
@@ -514,18 +514,18 @@ public class ResumeBindingServiceTests
     {
         using var temp = TempDirectory.Create();
         var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
-        service.Add(CreateResumeBinding("target", "workspace-1", "surface-1", "pane-1", @"C:\repo", "codex resume abc123"));
+        service.Add(CreateResumeBinding("target", "workspace-1", "surface-1", "pane-1", @"C:\repo", "tmux attach -t work"));
         service.Add(CreateResumeBinding("wrong-prefix", "workspace-1", "surface-1", "pane-2", @"C:\repo", "npm test"));
-        service.Add(CreateResumeBinding("wrong-cwd", "workspace-1", "surface-1", "pane-3", @"C:\other", "codex resume abc123"));
-        service.Add(CreateResumeBinding("wrong-surface", "workspace-1", "surface-2", "pane-4", @"C:\repo", "codex resume abc123"));
+        service.Add(CreateResumeBinding("wrong-cwd", "workspace-1", "surface-1", "pane-3", @"C:\other", "tmux attach -t work"));
+        service.Add(CreateResumeBinding("wrong-surface", "workspace-1", "surface-2", "pane-4", @"C:\repo", "tmux attach -t work"));
 
-        var trusted = service.TrustPrefix("workspace-1", "surface-1", "codex resume", @"C:\repo");
+        var trusted = service.TrustPrefix("workspace-1", "surface-1", "tmux attach", @"C:\repo");
 
         trusted.Should().Be(1);
         var bindings = service.Load().Bindings.ToDictionary(b => b.Id);
         bindings["target"].Trusted.Should().BeTrue();
         bindings["target"].TrustReason.Should().Be("user-approved-prefix");
-        bindings["target"].ApprovedPrefix.Should().Be("codex resume");
+        bindings["target"].ApprovedPrefix.Should().Be("tmux attach");
         bindings["wrong-prefix"].Trusted.Should().BeFalse();
         bindings["wrong-cwd"].Trusted.Should().BeFalse();
         bindings["wrong-surface"].Trusted.Should().BeFalse();
@@ -582,13 +582,13 @@ public class ResumeBindingServiceTests
         string surfaceId,
         string paneId,
         string workingDirectory = @"C:\repo",
-        string shell = "codex resume abc123") => new()
+        string shell = "tmux attach -t work") => new()
     {
         Id = id,
         WorkspaceId = workspaceId,
         SurfaceId = surfaceId,
         PaneId = paneId,
-        Kind = ResumeBindingKinds.Agent,
+        Kind = ResumeBindingKinds.Tmux,
         Shell = shell,
         WorkingDirectory = workingDirectory,
         CreatedAtUtc = new DateTime(2025, 1, 1, 1, 0, 0, DateTimeKind.Utc),
@@ -755,10 +755,10 @@ public class EcodeJsonServiceTests
                 }
               ],
               "actions": {
-                "codex": {
+                "devServer": {
                   "type": "command",
-                  "title": "Codex",
-                  "command": "codex",
+                  "title": "Dev Server",
+                  "command": "npm run dev",
                   "target": "currentTerminal"
                 }
               }
@@ -777,10 +777,10 @@ public class EcodeJsonServiceTests
                 }
               ],
               "actions": {
-                "codex": {
+                "devServer": {
                   "type": "command",
-                  "title": "Codex Local",
-                  "command": "codex --full-auto",
+                  "title": "Dev Server Local",
+                  "command": "npm run dev -- --host 0.0.0.0",
                   "target": "newTabInCurrentPane",
                   "palette": true,
                   "confirm": true
@@ -798,8 +798,8 @@ public class EcodeJsonServiceTests
         result.Config.Commands.Single(c => c.Name == "Run Tests").Confirm.Should().BeTrue();
         result.Config.Commands.Single(c => c.Name == "Run Tests").Keywords.Should().Equal("test", "verify");
         result.Config.Commands.Single(c => c.Name == "Format").Command.Should().Be("dotnet format");
-        result.Config.Actions["codex"].Title.Should().Be("Codex Local");
-        result.Config.Actions["codex"].Target.Should().Be(EcodeActionTargets.NewTabInCurrentPane);
+        result.Config.Actions["devServer"].Title.Should().Be("Dev Server Local");
+        result.Config.Actions["devServer"].Target.Should().Be(EcodeActionTargets.NewTabInCurrentPane);
     }
 
     [Fact]
@@ -1111,9 +1111,9 @@ public class VtParserTests
         string? receivedOsc = null;
         parser.OnOscDispatch = osc => receivedOsc = osc;
 
-        parser.Feed("\x1b]777;notify;Claude;Waiting for input\x07");
+        parser.Feed("\x1b]777;notify;Build;Waiting for input\x07");
 
-        receivedOsc.Should().Be("777;notify;Claude;Waiting for input");
+        receivedOsc.Should().Be("777;notify;Build;Waiting for input");
     }
 
     [Fact]
@@ -1370,9 +1370,9 @@ public class OscHandlerTests
         string? title = null, body = null;
         handler.NotificationReceived += (t, s, b) => { title = t; body = b; };
 
-        handler.Handle("99;t=Claude Code;b=Waiting for input");
+        handler.Handle("99;t=Build Watcher;b=Waiting for input");
 
-        title.Should().Be("Claude Code");
+        title.Should().Be("Build Watcher");
         body.Should().Be("Waiting for input");
     }
 
@@ -1383,9 +1383,9 @@ public class OscHandlerTests
         string? title = null, body = null;
         handler.NotificationReceived += (t, s, b) => { title = t; body = b; };
 
-        handler.Handle("777;notify;Claude;Task completed");
+        handler.Handle("777;notify;Build;Task completed");
 
-        title.Should().Be("Claude");
+        title.Should().Be("Build");
         body.Should().Be("Task completed");
     }
 

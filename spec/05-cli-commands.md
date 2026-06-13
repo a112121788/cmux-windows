@@ -45,7 +45,7 @@
 | `next` | — | `SURFACE.NEXT` |
 | `previous` / `prev` | — | `SURFACE.PREVIOUS` |
 | `resume show` / `ls` / `list` | `--all` + 项目 / Surface / pane 定位参数 | `SURFACE.RESUME.SHOW`，默认显示当前聚焦 pane 的恢复绑定 |
-| `resume set` | `--shell <cmd>` 或位置参数、`--kind <agent|tmux|custom>`、`--checkpoint <id>`、`--cwd <path>`、`--trusted <bool>`、`--approvedPrefix <prefix>` | `SURFACE.RESUME.SET`，为当前 / 指定 pane 保存一条可恢复命令 |
+| `resume set` | `--shell <cmd>` 或位置参数、`--kind <tmux|custom>`、`--checkpoint <id>`、`--cwd <path>`、`--trusted <bool>`、`--approvedPrefix <prefix>` | `SURFACE.RESUME.SET`，为当前 / 指定 pane 保存一条可恢复命令 |
 | `resume clear` / `rm` / `remove` | `--id <bindingId>` 或项目 / Surface / pane 定位参数 | `SURFACE.RESUME.CLEAR`，按 ID 或当前 / 指定 pane 清理绑定 |
 
 #### `split`
@@ -219,17 +219,17 @@ COMMAND [k=v [k=v ...]]
 
 ## 4. 用法示例
 
-### 4.1 Agent hook 触发通知
+### 4.1 自动化脚本触发通知
 
 ```powershell
-ecode notify --title "Claude Code" --body "等待输入"
+ecode notify --title "Build" --body "等待输入"
 ```
 
 ### 4.2 保存 / 查看恢复绑定
 
 ```powershell
-# 保存当前 pane 的 Codex resume 命令
-ecode surface resume set --kind agent --shell "codex resume abc123" --checkpoint "sprint-1" --trusted true --approvedPrefix "codex resume"
+# 保存当前 pane 的 tmux resume 命令
+ecode surface resume set --kind tmux --shell "tmux attach -t work" --checkpoint "sprint-1" --trusted true --approvedPrefix "tmux attach"
 
 # 查看当前 pane 绑定
 ecode surface resume show
@@ -272,7 +272,7 @@ $reader.ReadLine() | ConvertFrom-Json
 $pipe.Close()
 ```
 
-### 4.5 让 Agent 触发回车
+### 4.5 让脚本触发回车
 
 `PANE.WRITE` 的 `submitKey` 关键字：
 

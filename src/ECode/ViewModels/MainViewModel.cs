@@ -646,7 +646,7 @@ public partial class MainViewModel : ObservableObject
             return JsonSerializer.Serialize(new { error = "Missing required argument: shell" });
 
         var kind = (GetArg(args, "kind") ?? ResumeBindingKinds.Custom).Trim().ToLowerInvariant();
-        if (kind is not (ResumeBindingKinds.Agent or ResumeBindingKinds.Tmux or ResumeBindingKinds.Custom))
+        if (kind is not (ResumeBindingKinds.Tmux or ResumeBindingKinds.Custom))
             return JsonSerializer.Serialize(new { error = $"Unsupported resume kind: {kind}" });
 
         var workingDirectory = GetArg(args, "workingDirectory", "cwd");

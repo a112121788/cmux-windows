@@ -13,15 +13,15 @@
 
 ## 0. 一句话目标
 
-把当前 ECode 从“可用的 Windows 终端复用器原型”推进到“与 macOS ecode 核心体验对齐、面向 AI coding agents 的 Windows 原生开发工作台”。
+把当前 ECode 从“可用的 Windows 终端复用器原型”推进到 **Windows 原生 SuperTerminal**：稳定、高效、可脚本化的多项目终端工作台。
 
 最终用户应能：
 
 1. 在 Windows 上用原生 WPF + ConPTY 获得稳定终端、多项目、多标签页和分屏体验。
-2. 同时运行多个 Claude Code / Codex / OpenCode / Gemini / Copilot CLI 会话，并通过蓝环、侧栏、通知面板快速定位需要人工输入的会话。
-3. 使用 `ecode.json` 把一个项目的常用布局、Agent 启动命令、浏览器预览和快捷按钮固化下来。
+2. 同时运行多个 shell、dev server、日志流和长任务，并通过蓝环、侧栏、通知面板快速定位需要关注的会话。
+3. 使用 `ecode.json` 把一个项目的常用布局、终端命令、浏览器预览和快捷按钮固化下来。
 4. 通过 CLI / Named Pipe / v2 API 自动化创建项目、分屏、发送输入、读取输出、控制浏览器。
-5. 在崩溃 / 重启后恢复窗口、布局、工作目录、终端滚动历史、浏览器 URL，并对支持的 agent 会话执行可审计的 resume。
+5. 在崩溃 / 重启后恢复窗口、布局、工作目录、终端滚动历史、浏览器 URL，并对用户显式信任的命令执行可审计的 resume。
 
 ---
 
@@ -29,7 +29,7 @@
 
 ### 1.1 产品定位
 
-ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Windows 上的一组可组合开发原语：
+ECode 不是一个新的 IDE，也不是 AI 编排器，而是 Windows 上的一组可组合 SuperTerminal 原语：
 
 - 终端原语：ConPTY、scrollback、VT/OSC、快捷键、命令历史。
 - 布局原语：项目、Surface、Pane、分屏树、缩放、重排。
@@ -45,7 +45,7 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | 替代 VS Code / JetBrains | ECode 只提供 terminal/browser/control primitives，不管理编辑器工作流 |
 | 复制 macOS 源码 | 上游是 Swift/AppKit/libghostty/WKWebView，Windows 端应采用 WPF/ConPTY/WebView2 的原生实现 |
 | 做云端 VM 平台 | 上游 Founder's Edition 的 Cloud VMs 不属于当前开源 Windows 版范围 |
-| 强绑定某一个 Agent | 支持 Claude/Codex/OpenCode 等多 agent，不把核心流程绑死在任一 vendor |
+| 内置 AI 运行时或编排系统 | SuperTerminal 聚焦终端、布局、浏览器、自动化与恢复；外部工具只通过通用 CLI/IPC 接入 |
 | 引入 Electron/Tauri | 与“原生 Windows 版”的定位冲突 |
 | 在近期实现完整 remote daemon | `ecode ssh` 的 proxy broker / remote daemon 成本高，先列为远期评估项 |
 
@@ -54,9 +54,9 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | 原则 | 要求 |
 |---|---|
 | 先稳定核心，再扩展体验 | M0/M1 先把终端、布局、通知、测试、发布打牢，再进入浏览器和 v2 API |
-| 所有用户态持久化可审计 | `session.json`、`settings.json`、`logs/*.jsonl`、`agent/*.jsonl`、`resume.json` 均应可人工读懂 |
+| 所有用户态持久化可审计 | `session.json`、`settings.json`、`logs/*.jsonl`、`resume.json` 均应可人工读懂 |
 | 可回退 | 守护进程失败回退本地 ConPTY；WebView2 不存在时禁用浏览器；v2 API 不破坏 v1 CLI |
-| 不自动执行不可信命令 | resume / ecode.json command / hooks setup 均需要信任模型或显式确认 |
+| 不自动执行不可信命令 | resume / ecode.json command / setup 变更均需要信任模型或显式确认 |
 | 优先可测试 | 新服务应进 `ECode.Core`，UI 只做绑定；协议先写 schema，再写实现 |
 | Windows 原生优先 | DPAPI、Windows Toast、MSIX/Velopack、OpenSSH、WMI、ETW 可被优先利用 |
 
@@ -76,8 +76,7 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | 持久化 | `session.json` 布局与终端快照、窗口位置、侧边栏状态 | `SessionPersistenceService.cs` |
 | 守护进程 | `ecode-daemon.exe` 托管 `TerminalSession`、attach、snapshot、事件广播 | `src/ECode.Daemon/*`、`DaemonClient.cs` |
 | CLI | `notify / workspace / surface / split / status` | `src/ECode.Cli/Program.cs` |
-| 设置 | 外观、终端、行为、Agent、ShellProfiles、KeyBindings | `ECodeSettings.cs`、`SettingsWindow.xaml.cs` |
-| Agent | Agent 会话存储、OpenAI/Anthropic 兼容运行时、工具调用、上下文压缩 | `AgentRuntimeService.cs`、`AgentConversationStoreService.cs` |
+| 设置 | 外观、终端、行为、ShellProfiles、KeyBindings | `ECodeSettings.cs`、`SettingsWindow.xaml.cs` |
 | 安全 | DPAPI 密钥、命令/脚本脱敏 | `SecretStoreService.cs`、`CommandLogService.cs` |
 | 测试 | xUnit core tests、ConPTY smoke | `tests/ECode.Tests`、`tests/ECode.Smoke` |
 | 发布 | Framework-dependent / Self-contained / CLI | `scripts/publish.ps1` |
@@ -89,14 +88,12 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | Notification rings | Pane 蓝环 + sidebar/tab 高亮 | 属性存在但视觉不完整 | P0 | M1 实现视觉闭环 |
 | Notification panel | 一处查看未读并跳转 | 已有基础 | P0 | M1 加右键、排序、键盘导航 |
 | Vertical + horizontal tabs | 侧栏展示 branch/cwd/port/notification | 大部分已有 | P0 | M1 补 ports display、PR 状态占位 |
-| In-app browser | 终端旁 split browser + agent-browser API | `BrowserControl` 仅辅助 Vault | P1 | M3/M4 分两阶段 |
+| In-app browser | 终端旁 split browser + 脚本化 API | `BrowserControl` 仅辅助 Vault | P1 | M3/M4 分两阶段 |
 | Browser import | 导入 Chrome/Firefox/Arc sessions | 缺失 | P2 | M4 后半或 M6 |
 | Custom commands | `ecode.json` commands/actions/layout/buttons | M1 command 子集已接入命令面板 | P0 | M3 browser surface，M5 v2 |
 | Scriptable socket API | 创建 workspace/pane、send keys、browser automation | v1 CLI 很窄 | P0 | M5 v2 协议 |
 | SSH workspace | `ecode ssh` + remote browser route | 缺失 | P3 | 远期评估，不进主线 |
-| Claude Code Teams | 一键 teammate 模式 | 缺失 | P2 | M6 hooks/integrations |
-| Session restore | layout/history/browser/resume hooks | 仅布局 + terminal snapshot | P0 | M2 增强 resume |
-| Hooks setup | Claude/Codex/OpenCode 等 | 缺失 | P1 | M6 |
+| Session restore | layout/history/browser/trusted resume | 仅布局 + terminal snapshot | P0 | M2 增强 resume |
 | Short refs | `workspace:N` / `pane:N` | 仅 index/id/name | P1 | M5 |
 | Multi-window API | `window.list/current/focus/create/close` | 缺失 | P2 | M5 |
 | Auto update | Sparkle | 缺失 | P2 | M6 Velopack |
@@ -109,7 +106,7 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | Windows Toast | Toast button / Action Center deep link 到 workspace/pane | M1/M6 |
 | WebView2 | Browser pane、automation API、cookie/storage、DevTools | M3/M4 |
 | OpenSSH | 轻量 SSH profile，远期 remote workspace | M6+ |
-| WMI / netstat | 更准确的 process tree、ports、agent detection | M1/M2 |
+| WMI / netstat | 更准确的 process tree、ports、长任务检测 | M1/M2 |
 | MSIX / Velopack | 安装、更新、卸载 | M6 |
 | ETW | 远期性能诊断 | M7+ |
 | Windows Terminal settings | 主题 / profile 导入 | M1/M6 |
@@ -128,7 +125,7 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | `0.4.x` | 浏览器面板基础 | M3 | preview |
 | `0.5.x` | 浏览器脚本化 API | M4 | beta |
 | `0.6.x` | v2 API、多窗口、短 ID | M5 | beta |
-| `0.7.x` | hooks、自动更新、安装器 | M6 | release candidate |
+| `0.7.x` | Shell/CLI 集成、自动更新、安装器 | M6 | release candidate |
 | `1.0.0` | Windows 版稳定发布 | M7 + 缺陷收敛 | stable |
 
 ### 3.2 每个迭代的固定输出
@@ -157,12 +154,12 @@ ECode 不是一个新的 IDE，也不是强流程的 Agent 编排器，而是 Wi
 | 能力 | 依赖 | 被依赖方 |
 |---|---|---|
 | M0 CI / tests | 现有源码 | 全部后续里程碑 |
-| M1 ecode.json 基础 | `CommandPalette`、`SplitNode`、`TerminalSession` | M3 browser layout、M6 hooks |
-| M1 notification rings | `NotificationService`、`TerminalControl` | M6 agent hooks |
-| M2 resume binding | `SessionPersistenceService`、`TerminalProcess`、`SecretStoreService` | M6 hooks setup、M7 stable |
+| M1 ecode.json 基础 | `CommandPalette`、`SplitNode`、`TerminalSession` | M3 browser layout、M6 shell templates |
+| M1 notification rings | `NotificationService`、`TerminalControl` | M6 shell integration |
+| M2 resume binding | `SessionPersistenceService`、`TerminalProcess`、`SecretStoreService` | M6 setup/doctor、M7 stable |
 | M3 browser pane | WebView2、`SplitPaneContainer`、M1 ecode.json layout | M4 browser automation |
-| M4 browser automation | M3 browser pane、v2 command contracts | M5 v2 API、agent browser skill docs |
-| M5 v2 protocol | M0 tests、M1/M3 object model | M6 hooks、external integrations |
+| M4 browser automation | M3 browser pane、v2 command contracts | M5 v2 API、browser scripting docs |
+| M5 v2 protocol | M0 tests、M1/M3 object model | M6 setup、external integrations |
 | M6 updater/installer | M0 publish scripts | stable release |
 | M7 docs/ecosystem | M0-M6 outputs | 1.0 adoption |
 
@@ -252,7 +249,7 @@ ecode-cli/ecode.exe        yes     72.8    ...
 
 对齐 macOS ecode 的可见核心体验：
 
-- Agent 需要关注时，用户能从 pane、surface tab、workspace sidebar 三层看到提示。
+- 长任务或后台输出需要关注时，用户能从 pane、surface tab、workspace sidebar 三层看到提示。
 - 命令面板可以读取项目配置，提供项目级动作。
 - 基础交互补齐：拖拽重排、文件拖入、右键菜单、设置入口。
 
@@ -286,7 +283,7 @@ ecode-cli/ecode.exe        yes     72.8    ...
 | M1-B03 | 文件拖入终端 | drop 文件时写入 quoted path | `TerminalControl.cs` |
 | M1-B04 | 图片拖入远期占位 | 本期仅写入路径，不做 scp upload | `TerminalControl.cs` |
 | M1-B05 | Close active tab 按钮常显 | 当前 active surface close 按钮不只 hover 出现（已实现） | `SurfaceTabBar.xaml` |
-| M1-B06 | 设置面板重排 | 按“外观 / 终端 / 行为 / 集合 / Agent / 高级”重排，并新增“自定义命令”页 | `SettingsWindow.xaml` |
+| M1-B06 | 设置面板重排 | 按“外观 / 终端 / 行为 / 键盘 / 高级”重排，并新增“自定义命令”页 | `SettingsWindow.xaml` |
 
 #### M1-C `ecode.json` 基础
 
@@ -316,10 +313,10 @@ Windows 路径映射：
     }
   ],
   "actions": {
-    "codex": {
+    "devServer": {
       "type": "command",
-      "title": "Codex",
-      "command": "codex",
+      "title": "Dev Server",
+      "command": "npm run dev",
       "target": "newTabInCurrentPane",
       "palette": true
     }
@@ -413,7 +410,7 @@ CommandPalette item selected
 
 ### M2.1 目标
 
-上游文档强调：ecode 只恢复 app-owned state，不 checkpoint 任意 live process；对支持 agent 通过 hooks/native session id 恢复。Windows 版应采取同样原则：
+SuperTerminal 只恢复 app-owned state，不 checkpoint 任意 live process；自动执行仅限用户显式信任的 resume binding。
 
 - 始终恢复布局、cwd、scrollback。
 - 只有可信 resume binding 才自动执行命令。
@@ -432,14 +429,14 @@ CommandPalette item selected
       "workspaceId": "...",
       "surfaceId": "...",
       "paneId": "...",
-      "kind": "agent|tmux|custom",
+      "kind": "tmux|custom",
       "checkpoint": "work",
-      "shell": "codex resume abc123",
+      "shell": "tmux attach -t work",
       "workingDirectory": "C:\\repo",
       "environment": { "SAFE_KEY": "value" },
       "trusted": true,
       "trustReason": "user-approved-prefix",
-      "approvedPrefix": "codex resume",
+      "approvedPrefix": "tmux attach",
       "createdAtUtc": "...",
       "updatedAtUtc": "..."
     }
@@ -456,9 +453,8 @@ CommandPalette item selected
 | M2-T03 | 敏感环境剔除 | TOKEN/PASSWORD/SECRET/API_KEY 等丢弃（已实现） | 同上 |
 | M2-T04 | `ECODE_WORKSPACE_ID` 注入 | 启动 shell 时附带 env（已实现，本地与 daemon 路径均覆盖） | `TerminalProcess.cs` |
 | M2-T05 | CLI surface resume | `ecode surface resume set/show/clear`（已实现） | `ECode.Cli/Program.cs`、`MainViewModel.cs` |
-| M2-T06 | 自动恢复开关 | `AutoResumeAgentSessions` | `ECodeSettings.cs`、`SettingsWindow.xaml` |
+| M2-T06 | 自动恢复开关 | 全局 resume 开关 + binding 级信任 | `ECodeSettings.cs`、`SettingsWindow.xaml` |
 | M2-T07 | 恢复确认 UI | 未信任 binding 显示提示条 | `SplitPaneContainer.cs` 或 `TerminalControl` overlay |
-| M2-T08 | Agent hook mapping | 为 Codex/Claude/OpenCode 预留 session id 存储 | `AgentConversationStoreService` 或新服务 |
 
 ### M2.4 信任模型
 
@@ -480,7 +476,7 @@ SHA256(kind + shell + cwd + sortedSafeEnv + configPath + commandId)
 - 用户批准 prefix 后，再次重开自动运行。
 - `ecode surface resume show --json` 可看到 binding。
 - 敏感 env 不写入 `resume.json`。
-- `AutoResumeAgentSessions=false` 时所有 agent resume 均不自动执行。
+- 自动恢复关闭时，所有 resume binding 均不自动执行。
 
 ### M2.6 测试
 
@@ -588,7 +584,7 @@ M3 可先走 v1 文本参数，M5 再统一 v2。
 
 ### M4.1 目标
 
-对齐上游“从 agent-browser 移植的脚本化 API”：Agent 可以读取页面可访问树、定位元素、点击、填表、执行 JS、截图、读 console、管理 cookies/storage。
+提供面向开发者脚本和测试工具的浏览器自动化 API：可以读取页面可访问树、定位元素、点击、填表、执行 JS、截图、读 console、管理 cookies/storage。
 
 ### M4.2 API 分层
 
@@ -667,7 +663,7 @@ M3 可先走 v1 文本参数，M5 再统一 v2。
 
 ### M4.7 验收
 
-- 一个 Agent 可通过 CLI 完成：打开 localhost → snapshot → click 登录按钮 → fill 表单 → eval 状态。
+- 外部脚本可通过 CLI 完成：打开 localhost → snapshot → click 登录按钮 → fill 表单 → eval 状态。
 - 错误诊断包含 hint 与 snapshot excerpt。
 - 不支持的 API 明确 `not_supported`，不是 `method_not_found`。
 - browser API 测试在 CI 可运行或被标记为 Windows-only integration test。
@@ -678,7 +674,7 @@ M3 可先走 v1 文本参数，M5 再统一 v2。
 
 ### M5.1 目标
 
-从“少量 CLI 命令”升级为稳定 automation surface，让 agent 和脚本能可靠控制 ecode，而不依赖当前焦点窗口。
+从“少量 CLI 命令”升级为稳定 automation surface，让脚本和工具能可靠控制 ecode，而不依赖当前焦点窗口。
 
 ### M5.2 v2 协议设计
 
@@ -776,36 +772,35 @@ public sealed class WindowManagerService
 
 ---
 
-## M6 - Hooks、集成、安装与更新
+## M6 - 系统集成、安装与更新
 
 ### M6.1 目标
 
-让普通 Windows 用户无需手工配置即可把 Claude/Codex/OpenCode 等 agent 接入 ecode 通知与恢复系统，并能通过安装器/自动更新稳定使用。
+让普通 Windows 用户无需手工配置即可完成 PATH、Shell profile、Windows Terminal profile、诊断与自动更新，强化 SuperTerminal 的“开箱即用”。
 
-### M6.2 Hooks setup
+### M6.2 Shell / CLI setup
 
 命令草案：
 
 ```powershell
-ecode hooks setup
-ecode hooks setup claude
-ecode hooks setup codex
-ecode hooks setup --agent opencode
-ecode hooks status
-ecode hooks uninstall codex
+ecode setup install
+ecode setup status
+ecode setup uninstall
+ecode doctor
+ecode completion powershell
 ```
 
 支持矩阵：
 
-| Agent | 检测方式 | Hook 写入方式 | 通知机制 | Resume 机制 |
-|---|---|---|---|---|
-| Claude Code | `where claude` | Claude config JSON / wrapper | `ecode notify` | native session id / wrapper |
-| Codex | `where codex` | config / wrapper / PowerShell profile | `ecode notify` | `codex resume` if supported |
-| OpenCode | `where opencode` | config | `ecode notify` | native resume if supported |
-| Gemini | `where gemini` | wrapper | `ecode notify` | custom |
-| Copilot CLI | `where gh` + extension | shell integration | `ecode notify` | custom |
+| 集成项 | 检测方式 | 写入方式 | 可逆性 |
+|---|---|---|---|
+| PATH | 用户环境变量 | 添加 / 删除安装目录 | uninstall 清理 |
+| PowerShell profile | `$PROFILE` | 注入 completion / alias 片段 | 带 marker 可删除 |
+| cmd | 用户环境变量 | PATH + doskey 提示 | uninstall 清理 |
+| Windows Terminal | `settings.json` | 导入 profile / theme | 先 diff 后确认 |
+| WebView2 | Registry / runtime path | 只诊断，不静默安装 | 输出下载链接 |
 
-M6 先支持 Claude / Codex / OpenCode 三个。
+M6 先支持 PATH、PowerShell completion、doctor、Windows Terminal profile 导入。
 
 ### M6.3 Windows 安装策略
 
@@ -833,12 +828,11 @@ M6 先支持 Claude / Codex / OpenCode 三个。
 ### M6.5 验收
 
 - 新机器安装后 `ecode-app.exe` 可启动，`ecode.exe` 在 PATH 中可用。
-- `ecode hooks setup codex` 能检测并写入 hook，失败时打印可操作错误。
-- 卸载后 PATH 与 hook 可清理。
+- `ecode doctor` 能检测 ConPTY、WebView2、daemon、PATH 与配置目录状态。
+- `ecode setup install/uninstall` 对 PATH 与 shell profile 的修改可回滚。
 - 更新过程不丢 `%USERPROFILE%/.ecode` 数据。
 
 ---
-
 ## M7 - 生态、文档与 1.0 收敛
 
 ### M7.1 目标
@@ -895,7 +889,7 @@ docs/
 | 字段 | M1 | M3 | M5 | M6 |
 |---|---|---|---|---|
 | `commands[].command` | 支持 | 支持 | 支持 | 支持 |
-| `commands[].workspace` | terminal layout 子集 | browser surface | refs + v2 | hooks templates |
+| `commands[].workspace` | terminal layout 子集 | browser surface | refs + v2 | setup templates |
 | `actions` | command 子集 | browser builtin | shortcut/action registry | trusted fingerprint |
 | `ui.surfaceTabBar.buttons` | 读取但不完全渲染 | 支持 browser button | 支持 refs | 支持 icon trust |
 | `ui.newWorkspace.action` | 不做 | 可做 | 可做 | 可做 |
@@ -908,8 +902,8 @@ docs/
 |---|---|---|
 | 执行 `ecode.json` command | 仓库恶意命令 | 首次执行按 action fingerprint 请求信任 |
 | resume 自动执行 | 自动运行危险命令 | 只执行 trusted binding；敏感 env 丢弃 |
-| browser automation | Agent 操作已登录页面 | API 调用只对当前用户显式打开的 browser surface 生效 |
-| hooks setup | 修改用户配置 | 先 diff，用户确认；提供 uninstall |
+| browser automation | 脚本操作已登录页面 | API 调用只对当前用户显式打开的 browser surface 生效 |
+| setup install | 修改用户 PATH / profile | 先 diff，用户确认；提供 uninstall |
 | DPAPI secret | 密钥泄露 | CurrentUser 加密；UI 不回显完整 key |
 | logs/transcripts | token 泄露 | 启动时 scrub + 写入前 scrub |
 
@@ -957,7 +951,7 @@ docs/
 | R03 | v2 协议重构破坏 v1 CLI | 高 | 中 | 旧脚本失败 | v1 tests 固化；兼容垫片 |
 | R04 | `ecode.json` 执行恶意命令 | 高 | 中 | 首次运行即执行未知命令 | fingerprint 信任 + confirm |
 | R05 | MSIX 与 ConPTY 不兼容 | 中 | 中 | 安装版无法创建 PTY | 保留 Velopack/Inno fallback |
-| R06 | Agent hooks 格式频繁变化 | 中 | 高 | setup 后通知失效 | hooks setup 输出 diff；维护 per-agent adapter |
+| R06 | Shell / profile setup 误改用户配置 | 中 | 中 | PATH 或 profile 异常 | setup 输出 diff；带 marker；uninstall 可逆 |
 | R07 | 多窗口与 daemon event 分发错位 | 高 | 中 | 输出进入错误 pane | event 中只使用 paneId UUID，不用 index；强测试 |
 | R08 | 大量 scrollback 保存卡 UI | 中 | 中 | 关闭窗口卡顿 | 后台保存 + snapshot line limit |
 | R09 | Browser automation 被页面 CSP 阻止 | 中 | 中 | ExecuteScriptAsync 失败 | WebView2 devtools protocol fallback |
@@ -973,7 +967,7 @@ docs/
 |---|---|
 | 首次启动成功率 | > 99% |
 | `ecode notify` 到 UI 可见 | < 300ms |
-| 10 个 agent session 并行时 UI 无明显卡顿 | 是 |
+| 10 个长任务 / shell session 并行时 UI 无明显卡顿 | 是 |
 | 用户从未读通知跳转到目标 pane | 1 次快捷键 |
 | `.ecode/ecode.json` 识别并运行项目命令 | 0 配置外步骤 |
 | 重启后恢复布局/cwd/scrollback | 可靠 |
@@ -1000,7 +994,7 @@ docs/
 - `manaflow-ai/ecode` README 变化。
 - `TODO.md` 中 Socket API / Browser / SSH / Hooks 的状态。
 - `docs/custom-commands` schema 新增字段。
-- `docs/session-restore` 支持的 agent resume matrix。
+- `docs/session-restore` 支持的 trusted resume 策略。
 - CLI 目录中新增命令族。
 
 ### 9.2 Windows 适配规则
@@ -1012,7 +1006,7 @@ docs/
 | Sparkle | Velopack |
 | `~/Library/Application Support/ecode` | `%USERPROFILE%/.ecode` |
 | Unix socket | Named Pipe |
-| shell hooks | PowerShell / cmd / agent config / wrapper exe |
+| shell setup | PowerShell / cmd / PATH / Windows Terminal profile |
 | `~/.config/ecode` | `%USERPROFILE%\.config\ecode` |
 
 ---
@@ -1044,7 +1038,6 @@ docs/
 - WebView2 文档：<https://learn.microsoft.com/en-us/microsoft-edge/webview2/>
 - xterm 控制序列：<https://invisible-island.net/xterm/ctlseqs/ctlseqs.html>
 - Velopack：<https://velopack.io/>
-- agent-browser：<https://github.com/vercel-labs/agent-browser>
 
 ---
 
