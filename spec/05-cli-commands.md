@@ -63,6 +63,22 @@
 | `new <url>` | `--workspaceId/Name/Index`、`--name <text>` | `BROWSER.NEW`；始终创建并选中新 Browser Surface |
 | `open-split <url>` / `split <url>` | `--direction <right|down>`、`--workspaceId/Name/Index`、`--name <text>` | `BROWSER.OPEN_SPLIT`；v1 兼容入口，当前以 `fallbackMode:"new-surface"` 创建 Browser Surface |
 
+#### `ecode.json` workspace layout
+
+`ecode reload-config` 与应用启动会读取当前项目的 `.ecode/ecode.json`；`workspace.surfaces` 可声明 Terminal / Browser Surface，Browser Surface 会按 `name` 或 `url` 复用，避免重复创建。
+
+```jsonc
+{
+  "workspace": {
+    "selectedSurfaceIndex": 1,
+    "surfaces": [
+      { "type": "terminal", "name": "Shell" },
+      { "type": "browser", "name": "Preview", "url": "http://localhost:5173" }
+    ]
+  }
+}
+```
+
 #### `status`
 
 - 无参数，调用 `STATUS`

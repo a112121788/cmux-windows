@@ -16,6 +16,9 @@ using ECode.Services;
 using EcodeActionTargets = ECode.Core.Models.EcodeActionTargets;
 using EcodeJsonLoadResult = ECode.Core.Models.EcodeJsonLoadResult;
 using EcodeJsonDiagnosticSeverity = ECode.Core.Models.EcodeJsonDiagnosticSeverity;
+using EcodeSurfaceConfig = ECode.Core.Models.EcodeSurfaceConfig;
+using EcodeSurfaceTypes = ECode.Core.Models.EcodeSurfaceTypes;
+using SurfaceKind = ECode.Core.Models.SurfaceKind;
 
 namespace ECode.Views;
 
@@ -150,6 +153,7 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => UpdateWindowChrome();
         UpdateWindowClip();
         QueueFocusTerminal();
+        ApplyEcodeJsonWorkspaceLayout(LoadEcodeJsonConfig());
 
         // 监听守护进程连接状态变化
         App.DaemonClient.Connected += () => Dispatcher.BeginInvoke(UpdateDaemonStatus);
@@ -773,15 +777,17 @@ public partial class MainWindow : Window
     private void ReloadEcodeJsonConfig(bool showFeedback)
     {
         var result = LoadEcodeJsonConfig();
+        var appliedSurfaceCount = ApplyEcodeJsonWorkspaceLayout(result);
         RefreshCommandPalette(result);
 
         if (showFeedback)
-            ShowEcodeJsonReloadResult(result);
+            ShowEcodeJsonReloadResult(result, appliedSurfaceCount);
     }
 
     private string ReloadEcodeJsonConfigForIpc()
     {
         var result = LoadEcodeJsonConfig();
+        var appliedSurfaceCount = ApplyEcodeJsonWorkspaceLayout(result);
         RefreshCommandPalette(result);
 
         return JsonSerializer.Serialize(new
@@ -790,6 +796,8 @@ public partial class MainWindow : Window
             loadedPaths = result.LoadedPaths,
             commandCount = result.Config.Commands.Count,
             actionCount = result.Config.Actions.Count,
+            workspaceSurfaceCount = result.Config.Workspace?.Surfaces.Count ?? 0,
+            appliedSurfaceCount,
             diagnostics = result.Diagnostics.Select(d => new
             {
                 severity = d.Severity.ToString().ToLowerInvariant(),
@@ -797,6 +805,99 @@ public partial class MainWindow : Window
                 d.Message,
             }),
         });
+    }
+
+    private int ApplyEcodeJsonWorkspaceLayout(EcodeJsonLoadResult result)
+    {
+        var workspaceConfig = result.Config.Workspace;
+        var workspace = ViewModel.SelectedWorkspace;
+        if (workspaceConfig?.Surfaces is not { Count: > 0 } surfaces || workspace == null)
+            return 0;
+
+        var previousSelectedSurface = workspace.SelectedSurface;
+        SurfaceViewModel? selectedFromConfig = null;
+        var appliedCount = 0;
+
+        for (var i = 0; i < surfaces.Count; i++)
+        {
+            var surfaceConfig = surfaces[i];
+            var surface = ApplyEcodeJsonSurface(workspace, surfaceConfig);
+            if (surface == null)
+                continue;
+
+            appliedCount++;
+            if (workspaceConfig.SelectedSurfaceIndex == i)
+                selectedFromConfig = surface;
+        }
+
+        if (selectedFromConfig != null)
+        {
+            workspace.SelectedSurface = selectedFromConfig;
+        }
+        else if (previousSelectedSurface != null && workspace.Surfaces.Contains(previousSelectedSurface))
+        {
+            workspace.SelectedSurface = previousSelectedSurface;
+        }
+
+        if (appliedCount > 0)
+            PersistCurrentSession();
+
+        return appliedCount;
+    }
+
+    private static SurfaceViewModel? ApplyEcodeJsonSurface(WorkspaceViewModel workspace, EcodeSurfaceConfig surfaceConfig)
+    {
+        if (string.Equals(surfaceConfig.Type, EcodeSurfaceTypes.Browser, StringComparison.Ordinal))
+        {
+            var url = surfaceConfig.Url;
+            if (string.IsNullOrWhiteSpace(url))
+                return null;
+
+            var browserSurface = FindConfiguredBrowserSurface(workspace, surfaceConfig);
+            if (browserSurface == null)
+            {
+                return workspace.CreateBrowserSurface(url, surfaceConfig.Name);
+            }
+
+            if (!string.IsNullOrWhiteSpace(surfaceConfig.Name))
+                browserSurface.Name = surfaceConfig.Name;
+
+            browserSurface.OpenBrowserUrl(url);
+            return browserSurface;
+        }
+
+        if (!string.Equals(surfaceConfig.Type, EcodeSurfaceTypes.Terminal, StringComparison.Ordinal))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(surfaceConfig.Name))
+            return workspace.SelectedSurface?.Surface.Kind == SurfaceKind.Terminal
+                ? workspace.SelectedSurface
+                : workspace.Surfaces.FirstOrDefault(s => s.Surface.Kind == SurfaceKind.Terminal);
+
+        return workspace.Surfaces.FirstOrDefault(s =>
+            s.Surface.Kind == SurfaceKind.Terminal &&
+            string.Equals(s.Name, surfaceConfig.Name, StringComparison.OrdinalIgnoreCase))
+            ?? workspace.CreateTerminalSurface(surfaceConfig.Name);
+    }
+
+    private static SurfaceViewModel? FindConfiguredBrowserSurface(WorkspaceViewModel workspace, EcodeSurfaceConfig surfaceConfig)
+    {
+        if (!string.IsNullOrWhiteSpace(surfaceConfig.Name))
+        {
+            var byName = workspace.Surfaces.FirstOrDefault(s =>
+                s.Surface.Kind == SurfaceKind.Browser &&
+                string.Equals(s.Name, surfaceConfig.Name, StringComparison.OrdinalIgnoreCase));
+            if (byName != null)
+                return byName;
+        }
+
+        var normalizedUrl = BrowserPaneViewModel.NormalizeUrl(surfaceConfig.Url ?? "");
+        if (string.IsNullOrWhiteSpace(normalizedUrl))
+            return null;
+
+        return workspace.Surfaces.FirstOrDefault(s =>
+            s.Surface.Kind == SurfaceKind.Browser &&
+            string.Equals(BrowserPaneViewModel.NormalizeUrl(s.Surface.BrowserUrl ?? ""), normalizedUrl, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshCommandPalette(EcodeJsonLoadResult result)
@@ -807,11 +908,14 @@ public partial class MainWindow : Window
         CommandPaletteControl.RefreshItems(BuildPaletteItems(result));
     }
 
-    private void ShowEcodeJsonReloadResult(EcodeJsonLoadResult result)
+    private void ShowEcodeJsonReloadResult(EcodeJsonLoadResult result, int appliedSurfaceCount)
     {
         var message = result.LoadedPaths.Count == 0
             ? "未找到 ecode.json。"
             : $"已重载 {result.LoadedPaths.Count} 个 ecode.json，命令 {result.Config.Commands.Count} 个，动作 {result.Config.Actions.Count} 个。";
+
+        if (appliedSurfaceCount > 0)
+            message += $"{Environment.NewLine}已应用 workspace surface {appliedSurfaceCount} 个。";
 
         if (result.Diagnostics.Count > 0)
         {

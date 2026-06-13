@@ -859,6 +859,95 @@ public class EcodeJsonServiceTests
         result.Config.Commands.Single().Command.Should().Be("dotnet build");
     }
 
+    [Fact]
+    public void Load_ParsesWorkspaceBrowserSurface()
+    {
+        using var temp = TempDirectory.Create();
+        var path = Path.Combine(temp.Path, "ecode.json");
+        File.WriteAllText(path, """
+            {
+              "workspace": {
+                "selectedSurfaceIndex": 1,
+                "surfaces": [
+                  { "type": "terminal", "name": "Shell" },
+                  { "type": "browser", "name": "Docs", "url": " https://example.com/docs " }
+                ]
+              }
+            }
+            """);
+
+        var result = new EcodeJsonService().LoadFromFiles([path]);
+
+        result.Diagnostics.Should().BeEmpty();
+        result.Config.Workspace.Should().NotBeNull();
+        result.Config.Workspace!.SelectedSurfaceIndex.Should().Be(1);
+        result.Config.Workspace.Surfaces.Should().HaveCount(2);
+        result.Config.Workspace.Surfaces[0].Type.Should().Be(EcodeSurfaceTypes.Terminal);
+        result.Config.Workspace.Surfaces[0].Name.Should().Be("Shell");
+        result.Config.Workspace.Surfaces[1].Type.Should().Be(EcodeSurfaceTypes.Browser);
+        result.Config.Workspace.Surfaces[1].Name.Should().Be("Docs");
+        result.Config.Workspace.Surfaces[1].Url.Should().Be("https://example.com/docs");
+    }
+
+    [Fact]
+    public void Load_LocalWorkspaceOverridesGlobalWorkspace()
+    {
+        using var temp = TempDirectory.Create();
+        var workspaceDir = Path.Combine(temp.Path, "workspace");
+        var localDir = Path.Combine(workspaceDir, ".ecode");
+        Directory.CreateDirectory(localDir);
+
+        var globalPath = Path.Combine(temp.Path, "global.json");
+        File.WriteAllText(globalPath, """
+            {
+              "workspace": {
+                "surfaces": [
+                  { "type": "browser", "name": "Global Docs", "url": "https://global.example" }
+                ]
+              }
+            }
+            """);
+
+        File.WriteAllText(Path.Combine(localDir, "ecode.json"), """
+            {
+              "workspace": {
+                "surfaces": [
+                  { "type": "browser", "name": "Local Docs", "url": "https://local.example" }
+                ]
+              }
+            }
+            """);
+
+        var result = new EcodeJsonService().Load(workspaceDir, globalPath);
+
+        result.Diagnostics.Should().BeEmpty();
+        result.Config.Workspace!.Surfaces.Should().ContainSingle();
+        result.Config.Workspace.Surfaces.Single().Name.Should().Be("Local Docs");
+        result.Config.Workspace.Surfaces.Single().Url.Should().Be("https://local.example");
+    }
+
+    [Fact]
+    public void Load_BrowserSurfaceWithoutUrl_ReturnsDiagnostic()
+    {
+        using var temp = TempDirectory.Create();
+        var path = Path.Combine(temp.Path, "ecode.json");
+        File.WriteAllText(path, """
+            {
+              "workspace": {
+                "surfaces": [
+                  { "type": "browser", "name": "Preview" }
+                ]
+              }
+            }
+            """);
+
+        var result = new EcodeJsonService().LoadFromFiles([path]);
+
+        result.HasErrors.Should().BeTrue();
+        result.Diagnostics.Should().Contain(d => d.Severity == EcodeJsonDiagnosticSeverity.Error
+            && d.Message.Contains("workspace.surfaces[0].url", StringComparison.Ordinal));
+    }
+
     private sealed class TempDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(

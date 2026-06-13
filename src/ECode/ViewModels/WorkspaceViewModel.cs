@@ -81,13 +81,19 @@ public partial class WorkspaceViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void CreateNewSurface()
     {
-        var surface = new Surface { Name = $"Terminal {Surfaces.Count + 1}" };
+        CreateTerminalSurface();
+    }
+
+    public SurfaceViewModel CreateTerminalSurface(string? name = null)
+    {
+        var surface = new Surface { Name = string.IsNullOrWhiteSpace(name) ? $"Terminal {Surfaces.Count + 1}" : name };
         Workspace.Surfaces.Add(surface);
 
         var surfaceVm = new SurfaceViewModel(surface, Workspace.Id, _notificationService);
         surfaceVm.WorkingDirectoryChanged += OnSurfaceWorkingDirectoryChanged;
         Surfaces.Add(surfaceVm);
         SelectedSurface = surfaceVm;
+        return surfaceVm;
     }
 
     public SurfaceViewModel CreateBrowserSurface(string url, string? name = null)

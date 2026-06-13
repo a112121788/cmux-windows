@@ -302,7 +302,7 @@ Windows 路径映射：
 2. `<workspace cwd>\ecode.json`
 3. `%USERPROFILE%\.config\ecode\ecode.json`
 
-M1 只实现子集：
+当前已支持的核心子集：
 
 ```jsonc
 {
@@ -323,6 +323,13 @@ M1 只实现子集：
       "target": "newTabInCurrentPane",
       "palette": true
     }
+  },
+  "workspace": {
+    "selectedSurfaceIndex": 1,
+    "surfaces": [
+      { "type": "terminal", "name": "Shell" },
+      { "type": "browser", "name": "Preview", "url": "http://localhost:5173" }
+    ]
   }
 }
 ```
@@ -335,6 +342,7 @@ M1 只实现子集：
 - 已支持在 `Ctrl+Shift+P` 命令面板展示 `commands` 与 `actions`（`type:"command"` 且 `palette:true`）。
 - 已支持 `confirm:true` 弹窗确认、`currentTerminal` / `newTabInCurrentPane` 两种目标执行。
 - 已支持 CLI `ecode reload-config` 与 `Ctrl+Shift+,` 热重载；命令面板打开时会保留搜索词并刷新配置项。
+- 已支持 `workspace.surfaces` 中 `type:"browser"`，启动或热重载时可创建 / 复用 Browser Surface。
 
 | ID | 任务 | 说明 | 文件 |
 |---|---|---|---|
@@ -531,7 +539,7 @@ public class Surface
 | M3-T04 | `BrowserControl` 升级 | 地址栏、back/forward/reload/stop/devtools（已实现） | `Controls/BrowserControl.xaml(.cs)` |
 | M3-T05 | SplitPaneContainer 支持 browser | `BuildLeaf` 分支（已实现） | `Controls/SplitPaneContainer.cs` |
 | M3-T06 | CLI browser open | `ecode browser open|open-split|new <url>`（已实现；open-split v1 先回退为 new-surface） | `ECode.Cli/Program.cs`、`MainViewModel.cs` |
-| M3-T07 | ecode.json browser surface | `type:"browser"` parser | `EcodeJsonService.cs` |
+| M3-T07 | ecode.json browser surface | `type:"browser"` parser（已实现：启动 / reload 应用 layout） | `EcodeJsonService.cs`、`MainWindow.xaml.cs` |
 | M3-T08 | 持久化恢复 | 重开后恢复 URL 与 history | `SessionPersistenceService.cs` |
 
 ### M3.4 CLI 草案

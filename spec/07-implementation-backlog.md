@@ -152,7 +152,7 @@
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
 | `M3-C-01` | `[x]` `ecode browser open|open-split|new <url>` | `ECode.Cli/Program.cs`、`MainViewModel.cs` | build 通过；open-split v1 回退为 new-surface |
-| `M3-C-02` | `.ecode/ecode.json` workspace 中 `type:"browser"` surface 解析 | `EcodeJsonService.cs` | 在 layout 中可创建 |
+| `M3-C-02` | `[x]` `.ecode/ecode.json` workspace 中 `type:"browser"` surface 解析 | `EcodeJsonService.cs`、`MainWindow.xaml.cs` | 在 layout 中可创建 |
 | `M3-C-03` | `[x]` v1 IPC `BROWSER.OPEN_SPLIT` 文本参数 | `MainViewModel.HandlePipeCommand` | v1 响应含 `fallbackMode:"new-surface"` |
 
 ---
