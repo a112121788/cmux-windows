@@ -4,13 +4,13 @@ using ECode.Core.Models;
 namespace ECode.Services;
 
 /// <summary>
-/// 当 AI 编码代理需要关注时发送 Windows 吐司通知。
+/// 当 AI 编码代理需要关注时发送 Windows Toast 通知。
 /// 通过 Microsoft.Toolkit.Uwp.Notifications 使用 Windows 10/11 通知系统。
 /// </summary>
 public static class ToastNotificationHelper
 {
     /// <summary>
-    /// 为终端通知显示 Windows 吐司通知。
+    /// 为终端通知显示 Windows Toast 通知。
     /// </summary>
     public static void ShowToast(TerminalNotification notification, string workspaceName)
     {
@@ -19,7 +19,7 @@ public static class ToastNotificationHelper
             new ToastContentBuilder()
                 .AddText(notification.Title)
                 .AddText(notification.Body)
-                .AddAttributionText($"项目: {workspaceName}")
+                .AddAttributionText($"项目：{workspaceName}")
                 .AddArgument("action", "jumpToNotification")
                 .AddArgument("notificationId", notification.Id)
                 .AddArgument("workspaceId", notification.WorkspaceId)
@@ -28,13 +28,13 @@ public static class ToastNotificationHelper
         }
         catch
         {
-            // 吐司通知在某些环境下可能失败
+            // Toast 通知在某些环境下可能失败
             // （无 UWP 支持、沙盒等）。不关键。
         }
     }
 
     /// <summary>
-    /// 从通知中心清除所有 ecode 吐司通知。
+    /// 从通知中心清除所有 ecode Toast 通知。
     /// </summary>
     public static void ClearAll()
     {

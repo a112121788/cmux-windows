@@ -6,7 +6,7 @@ using ECode.Core.Services;
 namespace ECode.Cli;
 
 /// <summary>
-/// ecode 命令行工具 —— ecode macOS CLI 的 Windows 等价实现。
+/// ecode 命令行工具
 /// 通过命名管道与正在运行的 ecode 应用通信。
 ///
 /// 用法：

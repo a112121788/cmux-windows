@@ -7,7 +7,6 @@ namespace ECode.Core.IPC;
 
 /// <summary>
 /// 用于 ecode CLI/API 通信的命名管道服务器。
-/// 相当于 macOS 上 ecode 使用的 Unix 域套接字的 Windows 版本。
 /// 管道名：\\.\pipe\ecode（或带标签实例 \\.\pipe\ecode-{tag}）。
 /// 兼容期还会额外监听旧名 \\.\pipe\cmux（/ \\.\pipe\cmux-{tag}），
 /// 以便旧版 CLI 集成脚本继续可用；可通过
@@ -26,7 +25,7 @@ public sealed class NamedPipeServer : IDisposable
     public string? LegacyPipeName => _legacyPipeName;
 
     /// <summary>
-    /// 收到命令时调用。参数：(命令, 参数字典)。
+    /// 收到命令时调用。参数：(命令，参数字典)。
     /// 返回响应 JSON 字符串。
     /// </summary>
     public Func<string, Dictionary<string, string>, Task<string>>? OnCommand { get; set; }

@@ -4,7 +4,7 @@ using ECode.Core.Models;
 namespace ECode.Core.Services;
 
 /// <summary>
-/// 管理终端通知。跟踪未读状态，提供跳转到未读消息功能，并触发 Windows 吐司通知。
+/// 管理终端通知。跟踪未读状态，提供跳转到未读消息功能，并触发 Windows Toast 通知。
 /// </summary>
 public class NotificationService
 {
