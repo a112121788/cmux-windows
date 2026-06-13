@@ -72,3 +72,4 @@ $RECYCLE.BIN/
 [Ll]ogs/
 
 .run/*
+.dotnet/*
