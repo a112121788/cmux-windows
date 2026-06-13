@@ -16,6 +16,11 @@
                         <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
                     </MenuItem.Icon>
                 </MenuItem>
+                <MenuItem Header="复制项目 ID" Click="CopyId_Click">
+                    <MenuItem.Icon>
+                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
+                    </MenuItem.Icon>
+                </MenuItem>
                 <MenuItem Header="新建标签页" InputGestureText="Ctrl+T" Click="NewSurface_Click">
                     <MenuItem.Icon>
                         <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12" />

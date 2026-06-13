@@ -25,6 +25,12 @@ public partial class WorkspaceSidebarItem : UserControl
         }
     }
 
+    private void CopyId_Click(object sender, RoutedEventArgs e)
+    {
+        if (Vm is { } ws)
+            Clipboard.SetText(ws.Workspace.Id);
+    }
+
     private void NewSurface_Click(object sender, RoutedEventArgs e) => Vm?.CreateNewSurface();
 
     private void MoveUp_Click(object sender, RoutedEventArgs e)
