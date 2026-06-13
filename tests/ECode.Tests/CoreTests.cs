@@ -356,6 +356,153 @@ public class ResumeBindingDtoTests
 }
 
 /// <summary>
+/// ResumeBindingService 测试 - 覆盖加载、保存、增删、按 Surface 查询和信任前缀更新
+/// </summary>
+public class ResumeBindingServiceTests
+{
+    [Fact]
+    public void Load_WhenFileMissing_ReturnsEmptyVersionOneFile()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+
+        var file = service.Load();
+
+        file.Version.Should().Be(1);
+        file.Bindings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SaveAndLoad_RoundTripsBindings()
+    {
+        using var temp = TempDirectory.Create();
+        var path = Path.Combine(temp.Path, "resume.json");
+        var service = new ResumeBindingService(path);
+        var file = new ResumeBindingFile
+        {
+            Bindings =
+            [
+                CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1"),
+            ],
+        };
+
+        service.Save(file);
+        var loaded = service.Load();
+
+        loaded.Bindings.Should().ContainSingle();
+        loaded.Bindings.Single().Id.Should().Be("binding-1");
+        loaded.Bindings.Single().Shell.Should().Be("codex resume abc123");
+    }
+
+    [Fact]
+    public void Add_InsertsAndReplacesById()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        var binding = CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1");
+
+        service.Add(binding);
+        binding.Shell = "codex resume updated";
+        service.Add(binding);
+
+        var loaded = service.Load();
+        loaded.Bindings.Should().ContainSingle();
+        loaded.Bindings.Single().Shell.Should().Be("codex resume updated");
+        loaded.Bindings.Single().UpdatedAtUtc.Should().BeAfter(loaded.Bindings.Single().CreatedAtUtc.AddTicks(-1));
+    }
+
+    [Fact]
+    public void Remove_DeletesBindingById()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("binding-1", "workspace-1", "surface-1", "pane-1"));
+        service.Add(CreateResumeBinding("binding-2", "workspace-1", "surface-1", "pane-2"));
+
+        var removed = service.Remove("binding-1");
+
+        removed.Should().BeTrue();
+        service.Load().Bindings.Select(b => b.Id).Should().Equal("binding-2");
+        service.Remove("missing").Should().BeFalse();
+    }
+
+    [Fact]
+    public void FindForSurface_FiltersByWorkspaceAndSurface()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("target-1", "workspace-1", "surface-1", "pane-1"));
+        service.Add(CreateResumeBinding("other-surface", "workspace-1", "surface-2", "pane-2"));
+        service.Add(CreateResumeBinding("other-workspace", "workspace-2", "surface-1", "pane-3"));
+
+        var matches = service.FindForSurface("workspace-1", "surface-1");
+
+        matches.Select(b => b.Id).Should().Equal("target-1");
+    }
+
+    [Fact]
+    public void TrustPrefix_OnlyTrustsMatchingSurfaceCwdAndPrefix()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("target", "workspace-1", "surface-1", "pane-1", @"C:\repo", "codex resume abc123"));
+        service.Add(CreateResumeBinding("wrong-prefix", "workspace-1", "surface-1", "pane-2", @"C:\repo", "npm test"));
+        service.Add(CreateResumeBinding("wrong-cwd", "workspace-1", "surface-1", "pane-3", @"C:\other", "codex resume abc123"));
+        service.Add(CreateResumeBinding("wrong-surface", "workspace-1", "surface-2", "pane-4", @"C:\repo", "codex resume abc123"));
+
+        var trusted = service.TrustPrefix("workspace-1", "surface-1", "codex resume", @"C:\repo");
+
+        trusted.Should().Be(1);
+        var bindings = service.Load().Bindings.ToDictionary(b => b.Id);
+        bindings["target"].Trusted.Should().BeTrue();
+        bindings["target"].TrustReason.Should().Be("user-approved-prefix");
+        bindings["target"].ApprovedPrefix.Should().Be("codex resume");
+        bindings["wrong-prefix"].Trusted.Should().BeFalse();
+        bindings["wrong-cwd"].Trusted.Should().BeFalse();
+        bindings["wrong-surface"].Trusted.Should().BeFalse();
+    }
+
+    private static ResumeBinding CreateResumeBinding(
+        string id,
+        string workspaceId,
+        string surfaceId,
+        string paneId,
+        string workingDirectory = @"C:\repo",
+        string shell = "codex resume abc123") => new()
+    {
+        Id = id,
+        WorkspaceId = workspaceId,
+        SurfaceId = surfaceId,
+        PaneId = paneId,
+        Kind = ResumeBindingKinds.Agent,
+        Shell = shell,
+        WorkingDirectory = workingDirectory,
+        CreatedAtUtc = new DateTime(2025, 1, 1, 1, 0, 0, DateTimeKind.Utc),
+        UpdatedAtUtc = new DateTime(2025, 1, 1, 1, 0, 0, DateTimeKind.Utc),
+    };
+
+    private sealed class TempDirectory : IDisposable
+    {
+        public string Path { get; } = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            "ecode-resume-tests-" + Guid.NewGuid().ToString("N"));
+
+        private TempDirectory()
+        {
+            Directory.CreateDirectory(Path);
+        }
+
+        public static TempDirectory Create() => new();
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+                Directory.Delete(Path, recursive: true);
+        }
+    }
+}
+
+/// <summary>
 /// ecode.json 配置服务测试 - 验证全局配置与本地配置的加载、合并、验证和 JSONC 支持
 /// </summary>
 public class EcodeJsonServiceTests

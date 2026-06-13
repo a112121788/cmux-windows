@@ -1,0 +1,137 @@
+using System.Text.Json;
+using ECode.Core.Config;
+using ECode.Core.Models;
+
+namespace ECode.Core.Services;
+
+/// <summary>
+/// 读写 resume.json，并提供面向 surface 的恢复绑定查询与信任前缀更新。
+/// </summary>
+public sealed class ResumeBindingService
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    private readonly string _filePath;
+
+    public ResumeBindingService(string? filePath = null)
+    {
+        _filePath = string.IsNullOrWhiteSpace(filePath)
+            ? Path.Combine(CompatibilityOptions.GetAppDataDir(), "resume.json")
+            : filePath;
+    }
+
+    public ResumeBindingFile Load()
+    {
+        try
+        {
+            if (!File.Exists(_filePath))
+                return new ResumeBindingFile();
+
+            var json = File.ReadAllText(_filePath);
+            return JsonSerializer.Deserialize<ResumeBindingFile>(json, JsonOptions) ?? new ResumeBindingFile();
+        }
+        catch
+        {
+            return new ResumeBindingFile();
+        }
+    }
+
+    public void Save(ResumeBindingFile file)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_filePath) ?? ".");
+        var json = JsonSerializer.Serialize(file, JsonOptions);
+        var tempPath = _filePath + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, _filePath, overwrite: true);
+    }
+
+    public ResumeBinding Add(ResumeBinding binding)
+    {
+        var file = Load();
+        var now = DateTime.UtcNow;
+
+        if (string.IsNullOrWhiteSpace(binding.Id))
+            binding.Id = Guid.NewGuid().ToString();
+
+        if (binding.CreatedAtUtc == default)
+            binding.CreatedAtUtc = now;
+
+        binding.UpdatedAtUtc = now;
+
+        var existingIndex = file.Bindings.FindIndex(b => string.Equals(b.Id, binding.Id, StringComparison.Ordinal));
+        if (existingIndex >= 0)
+            file.Bindings[existingIndex] = binding;
+        else
+            file.Bindings.Add(binding);
+
+        Save(file);
+        return binding;
+    }
+
+    public bool Remove(string bindingId)
+    {
+        if (string.IsNullOrWhiteSpace(bindingId))
+            return false;
+
+        var file = Load();
+        var removed = file.Bindings.RemoveAll(b => string.Equals(b.Id, bindingId, StringComparison.Ordinal)) > 0;
+        if (removed)
+            Save(file);
+
+        return removed;
+    }
+
+    public IReadOnlyList<ResumeBinding> FindForSurface(string workspaceId, string surfaceId)
+    {
+        return Load().Bindings
+            .Where(b =>
+                string.Equals(b.WorkspaceId, workspaceId, StringComparison.Ordinal) &&
+                string.Equals(b.SurfaceId, surfaceId, StringComparison.Ordinal))
+            .OrderByDescending(b => b.UpdatedAtUtc)
+            .ToList();
+    }
+
+    public int TrustPrefix(string workspaceId, string surfaceId, string approvedPrefix, string? workingDirectory = null)
+    {
+        if (string.IsNullOrWhiteSpace(approvedPrefix))
+            return 0;
+
+        var file = Load();
+        var trustedCount = 0;
+        var now = DateTime.UtcNow;
+
+        foreach (var binding in file.Bindings)
+        {
+            if (!string.Equals(binding.WorkspaceId, workspaceId, StringComparison.Ordinal) ||
+                !string.Equals(binding.SurfaceId, surfaceId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(workingDirectory) &&
+                !string.Equals(binding.WorkingDirectory, workingDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!binding.Shell.StartsWith(approvedPrefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            binding.Trusted = true;
+            binding.TrustReason = "user-approved-prefix";
+            binding.ApprovedPrefix = approvedPrefix;
+            binding.UpdatedAtUtc = now;
+            trustedCount++;
+        }
+
+        if (trustedCount > 0)
+            Save(file);
+
+        return trustedCount;
+    }
+}
+

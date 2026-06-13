@@ -444,7 +444,7 @@ CommandPalette item selected
 | ID | 任务 | 说明 | 文件 |
 |---|---|---|---|
 | M2-T01 | `ResumeBinding` DTO | 数据模型 + JSON serializer（已实现） | `ECode.Core/Models/ResumeBinding.cs` |
-| M2-T02 | `ResumeBindingService` | Load/Save/Add/Remove/FindForSurface/TrustPrefix | `ECode.Core/Services/ResumeBindingService.cs` |
+| M2-T02 | `ResumeBindingService` | Load/Save/Add/Remove/FindForSurface/TrustPrefix（已实现） | `ECode.Core/Services/ResumeBindingService.cs` |
 | M2-T03 | 敏感环境剔除 | TOKEN/PASSWORD/SECRET/API_KEY 等丢弃 | 同上 |
 | M2-T04 | `ECODE_WORKSPACE_ID` 注入 | 启动 shell 时附带 env | `TerminalProcess.cs` |
 | M2-T05 | CLI surface resume | `ecode surface resume set/show/clear` | `ECode.Cli/Program.cs`、`MainViewModel.cs` |
