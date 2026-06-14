@@ -64,6 +64,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 - 新增 `status` / `health` ecode.v2 API，并提供 `ecode health` CLI 入口。
 - 新增 Shell setup 计划器，支持 PATH、PowerShell profile 与 cmd AutoRun 片段的可逆安装 / 卸载计算。
 - 新增 PowerShell completion 脚本与 `ecode completion powershell` 输出入口，可补全顶层命令、子命令、常用参数和短引用。
+- 新增 `ecode profile import` Windows Terminal 导入计划器，可写入 / dry-run shell profile、配色与字体设置。
 - 新增 `ecode browser open|new|open-split <url>` 与 `BROWSER.OPEN*` IPC，可从 CLI 创建或复用 Browser Surface。
 - Browser 工具栏新增停止加载、开发者工具与加载进度状态。
 - `.ecode/ecode.json` 新增 `workspace.surfaces` Browser Surface layout 支持，启动或重载配置时可创建 / 复用浏览器标签页。

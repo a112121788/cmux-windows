@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Globalization;
+using ECode.Cli.Commands;
 using ECode.Core.Config;
 using ECode.Core.IPC;
 using ECode.Core.IPC.V2;
@@ -66,6 +68,7 @@ public static class Program
                 "split" => await HandleSplit(args[1..]),
                 "restore-session" => await HandleRestoreSession(args[1..]),
                 "config" => await HandleConfig(args[1..]),
+                "profile" => HandleProfile(args[1..]),
                 "reload-config" => await HandleReloadConfig(),
                 "status" => await HandleStatus(),
                 "health" => await HandleHealth(),
@@ -368,6 +371,66 @@ public static class Program
             : await SendV2AndPrint(method, ParseArgs(args[1..]));
     }
 
+    private static int HandleProfile(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: ecode profile <import>");
+            return 1;
+        }
+
+        var subcommand = args[0].ToLowerInvariant();
+        return subcommand switch
+        {
+            "import" or "import-terminal" or "terminal" => HandleProfileImport(args[1..]),
+            _ => Error($"Unknown profile command: {subcommand}"),
+        };
+    }
+
+    private static int HandleProfileImport(string[] args)
+    {
+        var parsed = ParseArgs(args);
+        CopyAlias(parsed, "_arg0", "profile-name");
+
+        var settingsPath = GetFirstOption(parsed, "settings", "settings-path")
+            ?? ProfileImport.GetDefaultSettingsPath();
+        var existingSettings = File.Exists(settingsPath)
+            ? File.ReadAllText(settingsPath)
+            : "{}";
+
+        var options = new ProfileImportOptions(
+            ProfileName: GetFirstOption(parsed, "profile-name", "name") ?? "ECode Shell",
+            ProfileGuid: GetFirstOption(parsed, "guid") ?? "{7f4f7d8d-7a1f-45f3-b0c7-ec0de0000001}",
+            CommandLine: GetFirstOption(parsed, "commandline", "command-line", "shell") ?? "pwsh.exe -NoLogo",
+            StartingDirectory: GetFirstOption(parsed, "starting-directory", "cwd") ?? "%USERPROFILE%",
+            ColorSchemeName: GetFirstOption(parsed, "color-scheme", "scheme") ?? "ECode Dark",
+            FontFace: GetFirstOption(parsed, "font-face", "font") ?? "Cascadia Mono",
+            FontSize: ParseDoubleOption(GetFirstOption(parsed, "font-size"), 11));
+
+        var plan = ProfileImport.CreateImportPlan(existingSettings, options);
+        var shouldWrite = IsTruthy(GetFirstOption(parsed, "write", "apply"));
+
+        if (shouldWrite)
+        {
+            var directory = Path.GetDirectoryName(settingsPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
+            File.WriteAllText(settingsPath, plan.SettingsJson);
+        }
+
+        Console.WriteLine(shouldWrite
+            ? $"Imported Windows Terminal profile '{options.ProfileName}' into {settingsPath}"
+            : $"Dry run: Windows Terminal profile '{options.ProfileName}' for {settingsPath}");
+        Console.WriteLine($"Profile: {(plan.ProfileAdded ? "added" : plan.ProfileUpdated ? "updated" : "unchanged")}");
+        Console.WriteLine($"Color scheme: {(plan.SchemeAdded ? "added" : plan.SchemeUpdated ? "updated" : "unchanged")}");
+
+        if (!shouldWrite || IsTruthy(GetFirstOption(parsed, "print-json")))
+            Console.WriteLine(plan.SettingsJson);
+
+        return 0;
+    }
+
     private static async Task<int> HandleReloadConfig()
     {
         return await SendAndPrint("CONFIG.RELOAD");
@@ -617,6 +680,31 @@ public static class Program
             args[target] = value;
     }
 
+    private static string? GetFirstOption(Dictionary<string, string> args, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (args.TryGetValue(name, out var value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static double ParseDoubleOption(string? value, double fallback)
+    {
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static bool IsTruthy(string? value)
+    {
+        return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static int PrintHelp()
     {
         Console.WriteLine("""
@@ -715,6 +803,15 @@ public static class Program
               config                Manage ecode.json through ecode.v2
                 reload              Reload ecode.json commands/actions/layout
                 diagnostics         Show diagnostics from last or fresh reload
+
+              profile               Import integration profiles
+                import              Import an ECode Windows Terminal profile
+                  --settings <path> Windows Terminal settings.json path
+                  --write true      Write the plan; omitted prints the dry-run JSON result
+                  --commandline <c> Shell command line, e.g. "pwsh.exe -NoLogo"
+                  --font-face <f>   Windows Terminal font face
+                  --font-size <n>   Windows Terminal font size
+                  --color-scheme <s> Color scheme name to add/reuse
 
               restore-session       Refresh resume bindings and focus first recoverable pane
                 --all               Scan all workspaces/surfaces

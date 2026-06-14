@@ -514,11 +514,99 @@ public class PowerShellCompletionScriptTests
         script.Should().Contain("'pane'");
         script.Should().Contain("'browser'");
         script.Should().Contain("'completion'");
+        script.Should().Contain("'profile'");
         script.Should().Contain("'powershell'");
         script.Should().Contain("'window:'");
         script.Should().Contain("'workspace:'");
         script.Should().Contain("'surface:'");
         script.Should().Contain("'pane:'");
+    }
+}
+
+public class ProfileImportTests
+{
+    [Fact]
+    public void CreateImportPlan_AddsWindowsTerminalProfileSchemeAndFont()
+    {
+        var options = new ProfileImportOptions(
+            ProfileName: "ECode Dev",
+            ProfileGuid: "{11111111-2222-3333-4444-555555555555}",
+            CommandLine: "pwsh.exe -NoLogo",
+            StartingDirectory: @"C:\repo",
+            ColorSchemeName: "ECode Test",
+            FontFace: "Cascadia Code",
+            FontSize: 12);
+
+        var plan = ProfileImport.CreateImportPlan("{}", options);
+
+        plan.ProfileAdded.Should().BeTrue();
+        plan.SchemeAdded.Should().BeTrue();
+        using var doc = JsonDocument.Parse(plan.SettingsJson);
+        var profile = doc.RootElement.GetProperty("profiles").GetProperty("list")[0];
+        profile.GetProperty("guid").GetString().Should().Be(options.ProfileGuid);
+        profile.GetProperty("name").GetString().Should().Be(options.ProfileName);
+        profile.GetProperty("commandline").GetString().Should().Be(options.CommandLine);
+        profile.GetProperty("startingDirectory").GetString().Should().Be(options.StartingDirectory);
+        profile.GetProperty("colorScheme").GetString().Should().Be(options.ColorSchemeName);
+        profile.GetProperty("font").GetProperty("face").GetString().Should().Be(options.FontFace);
+        profile.GetProperty("font").GetProperty("size").GetDouble().Should().Be(12);
+        doc.RootElement.GetProperty("schemes")[0].GetProperty("name").GetString().Should().Be(options.ColorSchemeName);
+    }
+
+    [Fact]
+    public void CreateImportPlan_UpdatesExistingProfileByNameWithoutDuplicatingScheme()
+    {
+        var existing = """
+            {
+              // Windows Terminal allows comments and trailing commas.
+              "profiles": {
+                "list": [
+                  {
+                    "guid": "{aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee}",
+                    "name": "ECode Shell",
+                    "commandline": "powershell.exe",
+                    "font": { "face": "Consolas", "size": 10 }
+                  },
+                ],
+              },
+              "schemes": [
+                { "name": "ECode Dark", "background": "#000000" },
+              ],
+            }
+            """;
+
+        var plan = ProfileImport.CreateImportPlan(existing, new ProfileImportOptions(FontFace: "Cascadia Mono"));
+
+        plan.ProfileAdded.Should().BeFalse();
+        plan.ProfileUpdated.Should().BeTrue();
+        plan.SchemeAdded.Should().BeFalse();
+        using var doc = JsonDocument.Parse(plan.SettingsJson);
+        var profiles = doc.RootElement.GetProperty("profiles").GetProperty("list");
+        profiles.GetArrayLength().Should().Be(1);
+        profiles[0].GetProperty("guid").GetString().Should().Be("{7f4f7d8d-7a1f-45f3-b0c7-ec0de0000001}");
+        profiles[0].GetProperty("commandline").GetString().Should().Be("pwsh.exe -NoLogo");
+        profiles[0].GetProperty("font").GetProperty("face").GetString().Should().Be("Cascadia Mono");
+        doc.RootElement.GetProperty("schemes").GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public void CreateImportPlan_MigratesLegacyProfilesArray()
+    {
+        var existing = """
+            {
+              "profiles": [
+                { "name": "PowerShell", "commandline": "powershell.exe" }
+              ]
+            }
+            """;
+
+        var plan = ProfileImport.CreateImportPlan(existing, new ProfileImportOptions(ProfileName: "ECode Legacy"));
+
+        using var doc = JsonDocument.Parse(plan.SettingsJson);
+        var profiles = doc.RootElement.GetProperty("profiles").GetProperty("list");
+        profiles.GetArrayLength().Should().Be(2);
+        profiles[0].GetProperty("name").GetString().Should().Be("PowerShell");
+        profiles[1].GetProperty("name").GetString().Should().Be("ECode Legacy");
     }
 }
 

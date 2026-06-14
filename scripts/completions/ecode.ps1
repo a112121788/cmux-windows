@@ -15,6 +15,7 @@ $script:ECodeCommands = @(
     'split',
     'reload-config',
     'config',
+    'profile',
     'restore-session',
     'status',
     'health',
@@ -32,6 +33,7 @@ $script:ECodeSubcommands = @{
     browser = @('open', 'new', 'open-split', 'snapshot', 'click', 'fill', 'hover', 'press', 'eval', 'screenshot')
     split = @('right', 'down')
     config = @('reload', 'diagnostics', 'diag')
+    profile = @('import', 'import-terminal', 'terminal')
     completion = @('powershell')
 }
 
@@ -40,7 +42,9 @@ $script:ECodeGlobalOptions = @('--json', '--id-format')
 $script:ECodeCommonOptions = @(
     '--id', '--ref', '--window', '--workspace', '--surface', '--pane',
     '--name', '--title', '--body', '--lines', '--text', '--value',
-    '--url', '--surfaceRef', '--direction', '--submit'
+    '--url', '--surfaceRef', '--direction', '--submit',
+    '--settings', '--write', '--commandline', '--shell', '--font-face',
+    '--font-size', '--color-scheme', '--starting-directory', '--guid'
 )
 $script:ECodeRefPrefixes = @('window:', 'workspace:', 'surface:', 'pane:')
 
