@@ -87,6 +87,10 @@ public class SplitPaneContainer : ContentControl
         {
             Dispatcher.BeginInvoke(NavigateBrowserLeaves);
         }
+        else if (e.PropertyName is nameof(SurfaceViewModel.ResumeBindingVersion))
+        {
+            Dispatcher.BeginInvoke(Rebuild);
+        }
     }
 
     /// <summary>
@@ -299,6 +303,7 @@ public class SplitPaneContainer : ContentControl
         terminal.IsPaneFocused = paneId == _surface?.FocusedPaneId;
         terminal.IsSurfaceZoomed = _surface?.IsZoomed == true;
         terminal.HasNotification = _surface?.HasUnreadNotification(paneId) == true;
+        var pendingResume = _surface?.GetPendingResumeBinding(paneId);
 
         // 附加终端会话
         var session = _surface?.GetSession(paneId);
@@ -399,20 +404,90 @@ public class SplitPaneContainer : ContentControl
         header.Child = headerGrid;
 
         panel.Children.Add(header);
+        if (pendingResume != null)
+        {
+            var resumeBanner = CreateResumeBanner(paneId, pendingResume);
+            DockPanel.SetDock(resumeBanner, Dock.Top);
+            panel.Children.Add(resumeBanner);
+        }
         panel.Children.Add(terminal);
 
         var focusedAccent = GetThemeColor("AccentColor");
+        var errorBrush = GetThemeBrush("ErrorBrush");
         var container = new Border
         {
             Child = panel,
-            BorderBrush = terminal.IsPaneFocused
+            BorderBrush = pendingResume != null
+                ? errorBrush
+                : terminal.IsPaneFocused
                 ? new SolidColorBrush(Color.FromArgb(153, focusedAccent.R, focusedAccent.G, focusedAccent.B))
                 : GetThemeBrush("BorderBrush"),
-            BorderThickness = new Thickness(1),
+            BorderThickness = pendingResume != null ? new Thickness(2) : new Thickness(1),
         };
         container.MouseEnter += (_, _) => FocusTerminalPane(paneId, terminal);
         container.PreviewMouseDown += (_, _) => FocusTerminalPane(paneId, terminal);
         return container;
+    }
+
+    private UIElement CreateResumeBanner(string paneId, ResumeBinding binding)
+    {
+        var shellPreview = binding.Shell.Length > 96
+            ? binding.Shell[..96] + "..."
+            : binding.Shell;
+
+        var banner = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(42, 239, 68, 68)),
+            BorderBrush = GetThemeBrush("ErrorBrush"),
+            BorderThickness = new Thickness(0, 1, 0, 1),
+            Padding = new Thickness(8, 4, 8, 4),
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var text = new TextBlock
+        {
+            Text = $"可恢复：{shellPreview}",
+            ToolTip = binding.Shell,
+            Foreground = GetThemeBrush("ForegroundBrush"),
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        Grid.SetColumn(text, 0);
+
+        var button = new Button
+        {
+            Content = "可恢复",
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(8, 0, 0, 0),
+            FontSize = 11,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            Background = GetThemeBrush("ErrorBrush"),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            ToolTip = "确认后在此面板执行恢复命令",
+        };
+        button.Click += (_, e) =>
+        {
+            e.Handled = true;
+            var result = MessageBox.Show(
+                $"将在此面板执行恢复命令：\n\n{binding.Shell}",
+                "恢复终端会话",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+                _surface?.RunPendingResumeBinding(paneId);
+        };
+        Grid.SetColumn(button, 1);
+
+        grid.Children.Add(text);
+        grid.Children.Add(button);
+        banner.Child = grid;
+        return banner;
     }
 
     private UIElement BuildBrowserLeaf(string paneId)

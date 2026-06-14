@@ -20,6 +20,8 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
     private readonly Dictionary<string, List<string>> _paneCommandHistory = [];
     private readonly Dictionary<string, string?> _paneShells = [];
     private readonly Dictionary<string, int> _paneUnreadCounts = [];
+    private readonly Dictionary<string, ResumeBinding> _pendingResumeBindings = [];
+    private readonly ResumeBindingService _resumeBindingService = new();
     private readonly HashSet<string> _daemonPanes = [];
     private readonly HashSet<string> _daemonOutputLogged = [];
     private static readonly object _daemonWaitLock = new();
@@ -57,6 +59,9 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private int _browserNavigationVersion;
+
+    [ObservableProperty]
+    private int _resumeBindingVersion;
 
     public event Action<string>? WorkingDirectoryChanged;
 
@@ -145,6 +150,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         }
 
         RefreshNotificationState();
+        RefreshResumeBindings();
     }
 
     partial void OnUnreadNotificationCountChanged(int value)
@@ -171,6 +177,64 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         }
 
         NotificationVersion++;
+    }
+
+    public void RefreshResumeBindings()
+    {
+        _pendingResumeBindings.Clear();
+
+        if (IsBrowser)
+        {
+            ResumeBindingVersion++;
+            return;
+        }
+
+        var activePaneIds = RootNode.GetLeaves()
+            .Select(leaf => leaf.PaneId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+
+        var bindings = _resumeBindingService.FindForSurface(_workspaceId, Surface.Id)
+            .Where(binding =>
+                !binding.Trusted &&
+                !string.IsNullOrWhiteSpace(binding.Shell) &&
+                !string.IsNullOrWhiteSpace(binding.PaneId) &&
+                activePaneIds.Contains(binding.PaneId))
+            .GroupBy(binding => binding.PaneId, StringComparer.Ordinal)
+            .Select(group => group.OrderByDescending(binding => binding.UpdatedAtUtc).First());
+
+        foreach (var binding in bindings)
+            _pendingResumeBindings[binding.PaneId] = binding;
+
+        ResumeBindingVersion++;
+    }
+
+    public ResumeBinding? GetPendingResumeBinding(string paneId)
+    {
+        return _pendingResumeBindings.TryGetValue(paneId, out var binding) ? binding : null;
+    }
+
+    public bool RunPendingResumeBinding(string paneId)
+    {
+        if (!_pendingResumeBindings.TryGetValue(paneId, out var binding))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(binding.Shell) ||
+            !_sessions.TryGetValue(paneId, out var session))
+        {
+            return false;
+        }
+
+        FocusPane(paneId);
+
+        var command = binding.Shell.Trim();
+        session.Write(command + "\r");
+        RegisterCommandSubmission(paneId, command);
+
+        _pendingResumeBindings.Remove(paneId);
+        ResumeBindingVersion++;
+        return true;
     }
 
     public void FlashPaneAttention(string paneId)
@@ -673,6 +737,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         Surface.PaneSnapshots.Remove(paneId);
         _paneCommandHistory.Remove(paneId);
         _paneShells.Remove(paneId);
+        _pendingResumeBindings.Remove(paneId);
 
         // 如果这是唯一的面板，则不移除
         var leaves = RootNode.GetLeaves().ToList();

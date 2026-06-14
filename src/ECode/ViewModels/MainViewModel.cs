@@ -673,6 +673,7 @@ public partial class MainViewModel : ObservableObject
         };
 
         var saved = new ResumeBindingService().SetForPane(binding);
+        surface.RefreshResumeBindings();
         return JsonSerializer.Serialize(new
         {
             ok = true,
@@ -693,6 +694,8 @@ public partial class MainViewModel : ObservableObject
         if (args.TryGetValue("id", out var bindingId) && !string.IsNullOrWhiteSpace(bindingId))
         {
             var removedById = service.Remove(bindingId);
+            if (removedById)
+                RefreshResumeBindings();
             return JsonSerializer.Serialize(new
             {
                 ok = removedById,
@@ -711,6 +714,8 @@ public partial class MainViewModel : ObservableObject
             return JsonSerializer.Serialize(new { error });
 
         var removed = service.RemoveForPane(workspace.Workspace.Id, surface.Surface.Id, paneId);
+        if (removed > 0)
+            surface.RefreshResumeBindings();
         return JsonSerializer.Serialize(new
         {
             ok = true,
@@ -723,6 +728,15 @@ public partial class MainViewModel : ObservableObject
             paneIndex,
             paneName,
         });
+    }
+
+    private void RefreshResumeBindings()
+    {
+        foreach (var workspace in Workspaces)
+        {
+            foreach (var surface in workspace.Surfaces)
+                surface.RefreshResumeBindings();
+        }
     }
 
     private string HandleBrowserOpen(Dictionary<string, string> args)
