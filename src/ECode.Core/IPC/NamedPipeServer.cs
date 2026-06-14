@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using ECode.Core.Config;
+using ECode.Core.IPC.V2;
 
 namespace ECode.Core.IPC;
 
@@ -29,6 +30,11 @@ public sealed class NamedPipeServer : IDisposable
     /// 返回响应 JSON 字符串。
     /// </summary>
     public Func<string, Dictionary<string, string>, Task<string>>? OnCommand { get; set; }
+
+    /// <summary>
+    /// 收到 ecode.v2 JSON 请求时调用。若未注册，服务器返回 not_supported。
+    /// </summary>
+    public Func<V2Request, Task<V2Response>>? OnV2Request { get; set; }
 
     public NamedPipeServer(string? tag = null)
     {
@@ -125,25 +131,10 @@ public sealed class NamedPipeServer : IDisposable
                 var requestLine = await reader.ReadLineAsync(ct);
                 if (string.IsNullOrEmpty(requestLine)) return;
 
-                // 解析：COMMAND key1=value1 key2=value2 ...
-                var parts = requestLine.Split(' ', 2);
-                var command = parts[0].ToUpperInvariant();
-                var args = new Dictionary<string, string>();
-
-                if (parts.Length > 1)
-                {
-                    ParseArgs(parts[1], args);
-                }
-
-                string response;
-                if (OnCommand != null)
-                {
-                    response = await OnCommand(command, args);
-                }
-                else
-                {
-                    response = JsonSerializer.Serialize(new { error = "No handler registered" });
-                }
+                var incoming = NamedPipeProtocol.ParseFirstLine(requestLine);
+                var response = incoming.Kind == NamedPipeProtocolKind.V2
+                    ? await HandleV2Request(incoming)
+                    : await HandleV1Request(incoming.V1!);
 
                 await writer.WriteLineAsync(response);
             }
@@ -156,6 +147,36 @@ public sealed class NamedPipeServer : IDisposable
         {
             // 服务器关闭
         }
+    }
+
+    private async Task<string> HandleV1Request(NamedPipeV1Request request)
+    {
+        if (OnCommand != null)
+            return await OnCommand(request.Command, request.Args.ToDictionary());
+
+        return JsonSerializer.Serialize(new { error = "No handler registered" });
+    }
+
+    private async Task<string> HandleV2Request(NamedPipeIncomingRequest incoming)
+    {
+        V2Response response;
+        if (incoming.V2ErrorResponse != null)
+        {
+            response = incoming.V2ErrorResponse;
+        }
+        else if (OnV2Request != null)
+        {
+            response = await OnV2Request(incoming.V2!);
+        }
+        else
+        {
+            response = V2Response.FromStableError(
+                incoming.V2!.Id,
+                V2ErrorCodes.NotSupported,
+                "No ecode.v2 handler registered.");
+        }
+
+        return JsonSerializer.Serialize(response);
     }
 
     private static void ParseArgs(string argsString, Dictionary<string, string> args)
@@ -306,5 +327,51 @@ public static class NamedPipeClient
         if (last is TimeoutException) throw last;
         throw new TimeoutException($"Could not connect to any ecode pipe (tried: {string.Join(", ", candidates)}).");
     }
-}
 
+    public static async Task<string> SendV2Request(V2Request request, string? tag = null, int timeoutMs = 5000)
+    {
+        var requestLine = JsonSerializer.Serialize(request);
+        return await SendRawLine(requestLine, tag, timeoutMs);
+    }
+
+    private static async Task<string> SendRawLine(string requestLine, string? tag, int timeoutMs)
+    {
+        var newName = string.IsNullOrEmpty(tag) ? "ecode" : $"ecode-{tag}";
+        var candidates = new List<string> { newName };
+        if (CompatibilityOptions.ShouldListenLegacyMainPipe(tag))
+        {
+            candidates.Add(string.IsNullOrEmpty(tag) ? "cmux" : $"cmux-{tag}");
+        }
+
+        Exception? last = null;
+        foreach (var pipeName in candidates)
+        {
+            try
+            {
+                using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                using var cts = new CancellationTokenSource(timeoutMs);
+
+                await pipe.ConnectAsync(cts.Token);
+
+                using var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
+                using var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+
+                await writer.WriteLineAsync(requestLine);
+
+                var response = await reader.ReadLineAsync(cts.Token);
+                return response ?? "";
+            }
+            catch (TimeoutException ex)
+            {
+                last = ex;
+            }
+            catch (IOException ex)
+            {
+                last = ex;
+            }
+        }
+
+        if (last is TimeoutException) throw last;
+        throw new TimeoutException($"Could not connect to any ecode pipe (tried: {string.Join(", ", candidates)}).");
+    }
+}

@@ -374,6 +374,64 @@ public class V2ProtocolTests
     }
 }
 
+public class NamedPipeProtocolTests
+{
+    [Fact]
+    public void ParseFirstLine_ParsesLegacyV1Command()
+    {
+        var parsed = NamedPipeProtocol.ParseFirstLine("BROWSER.OPEN {\"url\":\"https://example.com\"}");
+
+        parsed.Kind.Should().Be(NamedPipeProtocolKind.V1);
+        parsed.V1.Should().NotBeNull();
+        parsed.V1!.Command.Should().Be("BROWSER.OPEN");
+        parsed.V1.Args.Should().ContainKey("url").WhoseValue.Should().Be("https://example.com");
+        parsed.V2.Should().BeNull();
+        parsed.V2ErrorResponse.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseFirstLine_ParsesEcodeV2JsonRequest()
+    {
+        var parsed = NamedPipeProtocol.ParseFirstLine("""
+            {"protocol":"ecode.v2","id":"req-1","method":"status","params":{"verbose":true}}
+            """);
+
+        parsed.Kind.Should().Be(NamedPipeProtocolKind.V2);
+        parsed.V2.Should().NotBeNull();
+        parsed.V2!.Method.Should().Be("status");
+        parsed.V2.Id!.Value.GetString().Should().Be("req-1");
+        parsed.V2.Params!.Value.GetProperty("verbose").GetBoolean().Should().BeTrue();
+        parsed.V1.Should().BeNull();
+        parsed.V2ErrorResponse.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseFirstLine_ReturnsV2ErrorForInvalidJsonEnvelope()
+    {
+        var parsed = NamedPipeProtocol.ParseFirstLine("{not-json");
+
+        parsed.Kind.Should().Be(NamedPipeProtocolKind.V2);
+        parsed.V2.Should().BeNull();
+        parsed.V2ErrorResponse.Should().NotBeNull();
+        parsed.V2ErrorResponse!.Error.Should().NotBeNull();
+        parsed.V2ErrorResponse.Error!.Code.Should().Be("invalid_request");
+    }
+
+    [Fact]
+    public void ParseFirstLine_ReturnsV2ErrorForUnsupportedProtocol()
+    {
+        var parsed = NamedPipeProtocol.ParseFirstLine("""
+            {"protocol":"other","id":"req-2","method":"status"}
+            """);
+
+        parsed.Kind.Should().Be(NamedPipeProtocolKind.V2);
+        parsed.V2.Should().BeNull();
+        parsed.V2ErrorResponse.Should().NotBeNull();
+        parsed.V2ErrorResponse!.Id!.Value.GetString().Should().Be("req-2");
+        parsed.V2ErrorResponse.Error!.Code.Should().Be("invalid_request");
+    }
+}
+
 public class BrowserScriptingServiceTests
 {
     [Fact]

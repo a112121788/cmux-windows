@@ -85,6 +85,7 @@ public partial class MainViewModel : ObservableObject
         if (App.PipeServer != null)
         {
             App.PipeServer.OnCommand = HandlePipeCommand;
+            App.PipeServer.OnV2Request = HandleV2PipeRequest;
         }
 
         // 恢复会话或创建默认项目
@@ -510,6 +511,34 @@ public partial class MainViewModel : ObservableObject
                 _ => JsonSerializer.Serialize(new { error = $"Unknown command: {command}" }),
             };
         });
+    }
+
+    private async Task<V2Response> HandleV2PipeRequest(V2Request request)
+    {
+        try
+        {
+            return await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                return request.Method switch
+                {
+                    "status" => V2Response.FromResult(request.Id, ParseJsonElement(HandleStatus())),
+                    _ => V2Response.FromStableError(
+                        request.Id,
+                        V2ErrorCodes.NotSupported,
+                        $"ecode.v2 method is not supported yet: {request.Method}"),
+                };
+            });
+        }
+        catch (Exception ex)
+        {
+            return V2Response.FromStableError(request.Id, V2ErrorCodes.InternalError, ex.Message);
+        }
+    }
+
+    private static JsonElement ParseJsonElement(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 
     private static bool IsBrowserScriptingCommand(string command)
