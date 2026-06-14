@@ -16,6 +16,9 @@
 .PARAMETER IncludeSmoke
   Run the ConPTY smoke test. This requires Windows and is skipped otherwise.
 
+.PARAMETER IncludeBrowserIntegration
+  Run browser scripting integration tests. This requires Windows/WebView2 and is skipped otherwise.
+
 .PARAMETER IncludePublish
   Run scripts/publish.ps1 for the selected publish flavor instead of only
   validating the publish script surface.
@@ -42,6 +45,8 @@ param(
     [string]$Rid = 'win-x64',
 
     [switch]$IncludeSmoke,
+
+    [switch]$IncludeBrowserIntegration,
 
     [switch]$IncludePublish,
 
@@ -188,8 +193,18 @@ try {
     Invoke-Checked $dotnet.Source $buildArgs
 
     Write-Step 'Run unit tests'
-    $testArgs = @('test', $UnitTestProject, '--configuration', $Config, '--no-build', '--verbosity', 'normal')
+    $testArgs = @('test', $UnitTestProject, '--configuration', $Config, '--no-build', '--verbosity', 'normal', '--filter', 'Category!=WindowsOnlyIntegration')
     Invoke-Checked $dotnet.Source $testArgs
+
+    Write-Step 'Browser integration gate'
+    if ($IncludeBrowserIntegration) {
+        if (-not (Test-IsWindows)) {
+            throw 'Browser scripting integration requires Windows/WebView2. Re-run on Windows or omit -IncludeBrowserIntegration.'
+        }
+        Invoke-Checked $dotnet.Source @('test', $UnitTestProject, '--configuration', $Config, '--no-build', '--verbosity', 'normal', '--filter', 'Category=WindowsOnlyIntegration')
+    } else {
+        Write-Host 'Dry-run only: use -IncludeBrowserIntegration on Windows/WebView2 to run browser scripting integration.' -ForegroundColor DarkYellow
+    }
 
     Write-Step 'Validate PowerShell scripts'
     Test-PowerShellScriptSyntax (Join-Path $RepoRoot 'scripts/ci.ps1')

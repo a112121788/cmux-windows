@@ -181,7 +181,7 @@
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M4-D-01` | 浏览器脚本化 xUnit（依赖 WebView2 + 本地测试页） | `tests/ECode.Tests/BrowserScriptingTests.cs` | P0 全绿；CI 标记 Windows-only integration |
+| `M4-D-01` | `[x]` 浏览器脚本化 xUnit（依赖 WebView2 + 本地测试页） | `tests/ECode.Tests/BrowserScriptingTests.cs` | P0 全绿；CI 标记 Windows-only integration |
 
 ---
 
