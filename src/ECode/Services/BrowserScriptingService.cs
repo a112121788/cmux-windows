@@ -16,10 +16,11 @@ public sealed class BrowserScriptingService
     public BrowserScriptingService(
         Func<IEnumerable<WorkspaceViewModel>> workspaceProvider,
         Func<string, BrowserScriptingSnapshot?>? snapshotProvider = null,
-        Func<BrowserScriptingActionRequest, BrowserScriptingActionOutcome>? actionExecutor = null)
+        Func<BrowserScriptingActionRequest, BrowserScriptingActionOutcome>? actionExecutor = null,
+        Func<BrowserScriptingStateRequest, BrowserScriptingStateOutcome>? stateExecutor = null)
     {
         _workspaceProvider = workspaceProvider ?? throw new ArgumentNullException(nameof(workspaceProvider));
-        _core = new CoreBrowserScriptingService(GetSurfaceDescriptors, snapshotProvider, actionExecutor);
+        _core = new CoreBrowserScriptingService(GetSurfaceDescriptors, snapshotProvider, actionExecutor, stateExecutor);
     }
 
     public BrowserScriptingResolveResult ResolveSurfaceRef(string? surfaceRef)
@@ -100,6 +101,46 @@ public sealed class BrowserScriptingService
     public BrowserScriptingActionResult Screenshot(string? surfaceRef)
     {
         return _core.Screenshot(surfaceRef);
+    }
+
+    public BrowserScriptingStateResult CookiesGet(string? surfaceRef, string? name = null)
+    {
+        return _core.CookiesGet(surfaceRef, name);
+    }
+
+    public BrowserScriptingStateResult CookiesSet(string? surfaceRef, BrowserScriptingCookie cookie)
+    {
+        return _core.CookiesSet(surfaceRef, cookie);
+    }
+
+    public BrowserScriptingStateResult CookiesClear(string? surfaceRef, string? name = null)
+    {
+        return _core.CookiesClear(surfaceRef, name);
+    }
+
+    public BrowserScriptingStateResult StorageGet(
+        string? surfaceRef,
+        string? key = null,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local)
+    {
+        return _core.StorageGet(surfaceRef, key, area);
+    }
+
+    public BrowserScriptingStateResult StorageSet(
+        string? surfaceRef,
+        string key,
+        string value,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local)
+    {
+        return _core.StorageSet(surfaceRef, key, value, area);
+    }
+
+    public BrowserScriptingStateResult StorageClear(
+        string? surfaceRef,
+        string? key = null,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local)
+    {
+        return _core.StorageClear(surfaceRef, key, area);
     }
 
     private IEnumerable<BrowserScriptingSurfaceDescriptor> GetSurfaceDescriptors()

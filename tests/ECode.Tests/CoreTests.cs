@@ -553,6 +553,46 @@ public class BrowserScriptingServiceTests
         requests[4].Node.Should().BeNull();
     }
 
+    [Fact]
+    public void CookiesGetSetClear_DispatchStateRequests()
+    {
+        var (service, surfaceRef, requests) = CreateStateService();
+        var cookie = new BrowserScriptingCookie("sid", "123", Domain: "example.com");
+
+        service.CookiesSet(surfaceRef, cookie).Success.Should().BeTrue();
+        service.CookiesGet(surfaceRef, "sid").Success.Should().BeTrue();
+        service.CookiesClear(surfaceRef, "sid").Success.Should().BeTrue();
+
+        requests.Select(request => request.Kind).Should().Equal(
+            BrowserScriptingStateKind.CookiesSet,
+            BrowserScriptingStateKind.CookiesGet,
+            BrowserScriptingStateKind.CookiesClear);
+        requests.All(request => request.SurfaceId == "browser-1").Should().BeTrue();
+        requests[0].Cookie.Should().Be(cookie);
+        requests[1].Name.Should().Be("sid");
+        requests[2].Name.Should().Be("sid");
+    }
+
+    [Fact]
+    public void StorageGetSetClear_DispatchStateRequests()
+    {
+        var (service, surfaceRef, requests) = CreateStateService();
+
+        service.StorageSet(surfaceRef, "theme", "dark", BrowserScriptingStorageArea.Session).Success.Should().BeTrue();
+        service.StorageGet(surfaceRef, "theme", BrowserScriptingStorageArea.Session).Success.Should().BeTrue();
+        service.StorageClear(surfaceRef, "theme", BrowserScriptingStorageArea.Session).Success.Should().BeTrue();
+
+        requests.Select(request => request.Kind).Should().Equal(
+            BrowserScriptingStateKind.StorageSet,
+            BrowserScriptingStateKind.StorageGet,
+            BrowserScriptingStateKind.StorageClear);
+        requests.All(request => request.Area == BrowserScriptingStorageArea.Session).Should().BeTrue();
+        requests[0].Key.Should().Be("theme");
+        requests[0].Value.Should().Be("dark");
+        requests[1].Key.Should().Be("theme");
+        requests[2].Key.Should().Be("theme");
+    }
+
     private static BrowserScriptingSurfaceDescriptor CreateSurface(string surfaceId, SurfaceKind kind)
     {
         return new BrowserScriptingSurfaceDescriptor(
@@ -600,6 +640,24 @@ public class BrowserScriptingServiceTests
             {
                 requests.Add(request);
                 return BrowserScriptingActionOutcome.FromValue(new { ok = true });
+            });
+
+        return (service, BrowserScriptingService.CreateSurfaceRef("browser-1"), requests);
+    }
+
+    private static (BrowserScriptingService Service, string SurfaceRef, List<BrowserScriptingStateRequest> Requests) CreateStateService()
+    {
+        var surfaces = new List<BrowserScriptingSurfaceDescriptor>
+        {
+            CreateSurface("browser-1", SurfaceKind.Browser),
+        };
+        var requests = new List<BrowserScriptingStateRequest>();
+        var service = new BrowserScriptingService(
+            () => surfaces,
+            stateExecutor: request =>
+            {
+                requests.Add(request);
+                return BrowserScriptingStateOutcome.FromValue(new { ok = true });
             });
 
         return (service, BrowserScriptingService.CreateSurfaceRef("browser-1"), requests);

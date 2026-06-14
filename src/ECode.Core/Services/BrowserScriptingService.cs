@@ -12,16 +12,19 @@ public sealed class BrowserScriptingService
     private readonly Func<IEnumerable<BrowserScriptingSurfaceDescriptor>> _surfaceProvider;
     private readonly Func<string, BrowserScriptingSnapshot?> _snapshotProvider;
     private readonly Func<BrowserScriptingActionRequest, BrowserScriptingActionOutcome>? _actionExecutor;
+    private readonly Func<BrowserScriptingStateRequest, BrowserScriptingStateOutcome>? _stateExecutor;
     private readonly Dictionary<string, BrowserScriptingRef> _surfaceRefs = new(StringComparer.Ordinal);
 
     public BrowserScriptingService(
         Func<IEnumerable<BrowserScriptingSurfaceDescriptor>> surfaceProvider,
         Func<string, BrowserScriptingSnapshot?>? snapshotProvider = null,
-        Func<BrowserScriptingActionRequest, BrowserScriptingActionOutcome>? actionExecutor = null)
+        Func<BrowserScriptingActionRequest, BrowserScriptingActionOutcome>? actionExecutor = null,
+        Func<BrowserScriptingStateRequest, BrowserScriptingStateOutcome>? stateExecutor = null)
     {
         _surfaceProvider = surfaceProvider ?? throw new ArgumentNullException(nameof(surfaceProvider));
         _snapshotProvider = snapshotProvider ?? (_ => null);
         _actionExecutor = actionExecutor;
+        _stateExecutor = stateExecutor;
     }
 
     public string TrackSurface(BrowserScriptingSurfaceDescriptor surface)
@@ -204,6 +207,46 @@ public sealed class BrowserScriptingService
         return ExecuteSurfaceAction(surfaceRef, BrowserScriptingActionKind.Screenshot);
     }
 
+    public BrowserScriptingStateResult CookiesGet(string? surfaceRef, string? name = null)
+    {
+        return ExecuteState(surfaceRef, BrowserScriptingStateRequest.CookiesGet("", name));
+    }
+
+    public BrowserScriptingStateResult CookiesSet(string? surfaceRef, BrowserScriptingCookie cookie)
+    {
+        return ExecuteState(surfaceRef, BrowserScriptingStateRequest.CookiesSet("", cookie));
+    }
+
+    public BrowserScriptingStateResult CookiesClear(string? surfaceRef, string? name = null)
+    {
+        return ExecuteState(surfaceRef, BrowserScriptingStateRequest.CookiesClear("", name));
+    }
+
+    public BrowserScriptingStateResult StorageGet(
+        string? surfaceRef,
+        string? key = null,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local)
+    {
+        return ExecuteState(surfaceRef, BrowserScriptingStateRequest.StorageGet("", area, key));
+    }
+
+    public BrowserScriptingStateResult StorageSet(
+        string? surfaceRef,
+        string key,
+        string value,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local)
+    {
+        return ExecuteState(surfaceRef, BrowserScriptingStateRequest.StorageSet("", area, key, value));
+    }
+
+    public BrowserScriptingStateResult StorageClear(
+        string? surfaceRef,
+        string? key = null,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local)
+    {
+        return ExecuteState(surfaceRef, BrowserScriptingStateRequest.StorageClear("", area, key));
+    }
+
     public static string CreateSurfaceRef(string surfaceId)
     {
         return SurfaceRefPrefix + surfaceId;
@@ -347,6 +390,57 @@ public sealed class BrowserScriptingService
                 Value: null,
                 Error: new V2Error(V2ErrorCodes.InternalError, ex.Message),
                 Diagnostics: diagnostics);
+        }
+    }
+
+    private BrowserScriptingStateResult ExecuteState(
+        string? surfaceRef,
+        BrowserScriptingStateRequest request)
+    {
+        var resolved = ResolveSurfaceRef(surfaceRef);
+        if (!resolved.Success)
+        {
+            return new BrowserScriptingStateResult(
+                Success: false,
+                Value: null,
+                Error: resolved.Error,
+                Diagnostics: resolved.Diagnostics);
+        }
+
+        var routedRequest = request with { SurfaceId = resolved.Surface!.SurfaceId };
+        if (_stateExecutor == null)
+        {
+            return new BrowserScriptingStateResult(
+                Success: false,
+                Value: null,
+                Error: new V2Error(V2ErrorCodes.NotSupported, $"Browser state operation is not wired: {request.Kind}"),
+                Diagnostics: resolved.Diagnostics);
+        }
+
+        try
+        {
+            var outcome = _stateExecutor(routedRequest);
+            return new BrowserScriptingStateResult(
+                Success: outcome.Success,
+                Value: outcome.Value,
+                Error: outcome.Error,
+                Diagnostics: resolved.Diagnostics);
+        }
+        catch (TimeoutException ex)
+        {
+            return new BrowserScriptingStateResult(
+                Success: false,
+                Value: null,
+                Error: new V2Error(V2ErrorCodes.Timeout, ex.Message),
+                Diagnostics: resolved.Diagnostics);
+        }
+        catch (Exception ex)
+        {
+            return new BrowserScriptingStateResult(
+                Success: false,
+                Value: null,
+                Error: new V2Error(V2ErrorCodes.InternalError, ex.Message),
+                Diagnostics: resolved.Diagnostics);
         }
     }
 
@@ -528,6 +622,88 @@ public sealed record BrowserScriptingActionOutcome(
 }
 
 public sealed record BrowserScriptingActionResult(
+    bool Success,
+    object? Value,
+    V2Error? Error,
+    BrowserScriptingDiagnostics Diagnostics);
+
+public enum BrowserScriptingStateKind
+{
+    CookiesGet,
+    CookiesSet,
+    CookiesClear,
+    StorageGet,
+    StorageSet,
+    StorageClear,
+}
+
+public enum BrowserScriptingStorageArea
+{
+    Local,
+    Session,
+}
+
+public sealed record BrowserScriptingCookie(
+    string Name,
+    string Value,
+    string? Domain = null,
+    string Path = "/",
+    bool HttpOnly = false,
+    bool Secure = false,
+    string? SameSite = null,
+    DateTimeOffset? ExpiresUtc = null);
+
+public sealed record BrowserScriptingStateRequest(
+    string SurfaceId,
+    BrowserScriptingStateKind Kind,
+    string? Name = null,
+    BrowserScriptingCookie? Cookie = null,
+    BrowserScriptingStorageArea Area = BrowserScriptingStorageArea.Local,
+    string? Key = null,
+    string? Value = null)
+{
+    public static BrowserScriptingStateRequest CookiesGet(string surfaceId, string? name = null) =>
+        new(surfaceId, BrowserScriptingStateKind.CookiesGet, Name: name);
+
+    public static BrowserScriptingStateRequest CookiesSet(string surfaceId, BrowserScriptingCookie cookie) =>
+        new(surfaceId, BrowserScriptingStateKind.CookiesSet, Cookie: cookie);
+
+    public static BrowserScriptingStateRequest CookiesClear(string surfaceId, string? name = null) =>
+        new(surfaceId, BrowserScriptingStateKind.CookiesClear, Name: name);
+
+    public static BrowserScriptingStateRequest StorageGet(
+        string surfaceId,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local,
+        string? key = null) =>
+        new(surfaceId, BrowserScriptingStateKind.StorageGet, Area: area, Key: key);
+
+    public static BrowserScriptingStateRequest StorageSet(
+        string surfaceId,
+        BrowserScriptingStorageArea area,
+        string key,
+        string value) =>
+        new(surfaceId, BrowserScriptingStateKind.StorageSet, Area: area, Key: key, Value: value);
+
+    public static BrowserScriptingStateRequest StorageClear(
+        string surfaceId,
+        BrowserScriptingStorageArea area = BrowserScriptingStorageArea.Local,
+        string? key = null) =>
+        new(surfaceId, BrowserScriptingStateKind.StorageClear, Area: area, Key: key);
+}
+
+public sealed record BrowserScriptingStateOutcome(
+    bool Success,
+    object? Value = null,
+    V2Error? Error = null)
+{
+    public static BrowserScriptingStateOutcome FromValue(object? value = null) =>
+        new(Success: true, Value: value, Error: null);
+
+    public static BrowserScriptingStateOutcome FromError(string code, string message) =>
+        new(Success: false, Value: null, Error: new V2Error(code, message));
+}
+
+public sealed record BrowserScriptingStateResult(
     bool Success,
     object? Value,
     V2Error? Error,
