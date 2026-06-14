@@ -447,6 +447,76 @@ public class BrowserScriptingServiceTests
         result.Error!.Code.Should().Be(V2ErrorCodes.InvalidRef);
     }
 
+    [Fact]
+    public void GetSnapshot_ReturnsRegisteredBrowserSnapshot()
+    {
+        var (service, surfaceRef) = CreateSnapshotService();
+
+        var result = service.GetSnapshot(surfaceRef);
+
+        result.Success.Should().BeTrue();
+        result.Snapshot.Should().NotBeNull();
+        result.Snapshot!.Root.Role.Should().Be("document");
+        result.Error.Should().BeNull();
+    }
+
+    [Fact]
+    public void FindByRole_MatchesRoleAndAccessibleName()
+    {
+        var (service, surfaceRef) = CreateSnapshotService();
+
+        var result = service.FindByRole(surfaceRef, "button", "Save");
+
+        result.Success.Should().BeTrue();
+        result.Nodes.Should().ContainSingle();
+        result.Nodes[0].NodeId.Should().Be("save");
+    }
+
+    [Fact]
+    public void FindByText_MatchesVisibleTextContent()
+    {
+        var (service, surfaceRef) = CreateSnapshotService();
+
+        var result = service.FindByText(surfaceRef, "welcome");
+
+        result.Success.Should().BeTrue();
+        result.Nodes.Should().ContainSingle();
+        result.Nodes[0].NodeId.Should().Be("hero");
+    }
+
+    [Fact]
+    public void FindByTestId_MatchesExactTestId()
+    {
+        var (service, surfaceRef) = CreateSnapshotService();
+
+        var result = service.FindByTestId(surfaceRef, "email-input");
+
+        result.Success.Should().BeTrue();
+        result.Nodes.Should().ContainSingle();
+        result.Nodes[0].Role.Should().Be("textbox");
+    }
+
+    [Fact]
+    public void FindFirstLastNth_SelectFromNestedLocatorMatches()
+    {
+        var (service, surfaceRef) = CreateSnapshotService();
+        var buttons = BrowserScriptingLocator.Role("button");
+
+        var first = service.FindFirst(surfaceRef, buttons);
+        var last = service.FindLast(surfaceRef, buttons);
+        var second = service.FindNth(surfaceRef, buttons, 1);
+
+        first.Success.Should().BeTrue();
+        first.Nodes.Should().ContainSingle();
+        first.Nodes[0].NodeId.Should().Be("save");
+        last.Success.Should().BeTrue();
+        last.Nodes.Should().ContainSingle();
+        last.Nodes[0].NodeId.Should().Be("cancel");
+        second.Success.Should().BeTrue();
+        second.Nodes.Should().ContainSingle();
+        second.Nodes[0].NodeId.Should().Be("cancel");
+    }
+
     private static BrowserScriptingSurfaceDescriptor CreateSurface(string surfaceId, SurfaceKind kind)
     {
         return new BrowserScriptingSurfaceDescriptor(
@@ -457,6 +527,64 @@ public class BrowserScriptingServiceTests
             Kind: kind,
             Url: kind == SurfaceKind.Browser ? "https://example.com" : null,
             Title: kind == SurfaceKind.Browser ? "Example" : null);
+    }
+
+    private static (BrowserScriptingService Service, string SurfaceRef) CreateSnapshotService()
+    {
+        var surfaces = new List<BrowserScriptingSurfaceDescriptor>
+        {
+            CreateSurface("browser-1", SurfaceKind.Browser),
+        };
+        var snapshots = new Dictionary<string, BrowserScriptingSnapshot>
+        {
+            ["browser-1"] = CreateSnapshot(),
+        };
+        var service = new BrowserScriptingService(
+            () => surfaces,
+            surfaceId => snapshots.TryGetValue(surfaceId, out var snapshot) ? snapshot : null);
+
+        return (service, BrowserScriptingService.CreateSurfaceRef("browser-1"));
+    }
+
+    private static BrowserScriptingSnapshot CreateSnapshot()
+    {
+        return new BrowserScriptingSnapshot(new BrowserScriptingNode
+        {
+            NodeId = "root",
+            Role = "document",
+            Name = "Example page",
+            Children =
+            [
+                new BrowserScriptingNode
+                {
+                    NodeId = "hero",
+                    Role = "heading",
+                    Name = "Welcome",
+                    Text = "Welcome to ECode",
+                },
+                new BrowserScriptingNode
+                {
+                    NodeId = "email",
+                    Role = "textbox",
+                    Name = "Email",
+                    TestId = "email-input",
+                },
+                new BrowserScriptingNode
+                {
+                    NodeId = "save",
+                    Role = "button",
+                    Name = "Save",
+                    Text = "Save",
+                },
+                new BrowserScriptingNode
+                {
+                    NodeId = "cancel",
+                    Role = "button",
+                    Name = "Cancel",
+                    Text = "Cancel",
+                },
+            ],
+        });
     }
 }
 

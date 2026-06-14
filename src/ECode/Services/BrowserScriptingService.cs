@@ -13,10 +13,12 @@ public sealed class BrowserScriptingService
     private readonly Func<IEnumerable<WorkspaceViewModel>> _workspaceProvider;
     private readonly CoreBrowserScriptingService _core;
 
-    public BrowserScriptingService(Func<IEnumerable<WorkspaceViewModel>> workspaceProvider)
+    public BrowserScriptingService(
+        Func<IEnumerable<WorkspaceViewModel>> workspaceProvider,
+        Func<string, BrowserScriptingSnapshot?>? snapshotProvider = null)
     {
         _workspaceProvider = workspaceProvider ?? throw new ArgumentNullException(nameof(workspaceProvider));
-        _core = new CoreBrowserScriptingService(GetSurfaceDescriptors);
+        _core = new CoreBrowserScriptingService(GetSurfaceDescriptors, snapshotProvider);
     }
 
     public BrowserScriptingResolveResult ResolveSurfaceRef(string? surfaceRef)
@@ -32,6 +34,41 @@ public sealed class BrowserScriptingService
     public string TrackSurface(WorkspaceViewModel workspace, SurfaceViewModel surface)
     {
         return _core.TrackSurface(ToDescriptor(workspace, surface));
+    }
+
+    public BrowserScriptingSnapshotResult GetSnapshot(string? surfaceRef)
+    {
+        return _core.GetSnapshot(surfaceRef);
+    }
+
+    public BrowserScriptingLocatorResult FindByRole(string? surfaceRef, string role, string? name = null)
+    {
+        return _core.FindByRole(surfaceRef, role, name);
+    }
+
+    public BrowserScriptingLocatorResult FindByText(string? surfaceRef, string text)
+    {
+        return _core.FindByText(surfaceRef, text);
+    }
+
+    public BrowserScriptingLocatorResult FindByTestId(string? surfaceRef, string testId)
+    {
+        return _core.FindByTestId(surfaceRef, testId);
+    }
+
+    public BrowserScriptingLocatorResult FindFirst(string? surfaceRef, BrowserScriptingLocator locator)
+    {
+        return _core.FindFirst(surfaceRef, locator);
+    }
+
+    public BrowserScriptingLocatorResult FindLast(string? surfaceRef, BrowserScriptingLocator locator)
+    {
+        return _core.FindLast(surfaceRef, locator);
+    }
+
+    public BrowserScriptingLocatorResult FindNth(string? surfaceRef, BrowserScriptingLocator locator, int index)
+    {
+        return _core.FindNth(surfaceRef, locator, index);
     }
 
     private IEnumerable<BrowserScriptingSurfaceDescriptor> GetSurfaceDescriptors()
