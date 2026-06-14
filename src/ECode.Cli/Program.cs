@@ -59,6 +59,7 @@ public static class Program
                 "window" => await HandleWindow(args[1..]),
                 "workspace" => await HandleWorkspace(args[1..]),
                 "surface" => await HandleSurface(args[1..]),
+                "pane" => await HandlePane(args[1..]),
                 "browser" => await HandleBrowser(args[1..]),
                 "split" => await HandleSplit(args[1..]),
                 "restore-session" => await HandleRestoreSession(args[1..]),
@@ -187,6 +188,37 @@ public static class Program
         var parsed = ParseArgs(args);
         NormalizeSurfaceReorderArgs(parsed);
         return await SendV2AndPrint("surface.reorder", parsed);
+    }
+
+    private static async Task<int> HandlePane(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: ecode pane <list|focus|write|read|split|close|resize|swap|zoom>");
+            return 1;
+        }
+
+        var subcommand = args[0].ToLowerInvariant();
+        var parsed = ParseArgs(args[1..]);
+        NormalizePaneArgs(subcommand, parsed);
+
+        var method = subcommand switch
+        {
+            "list" or "ls" => "pane.list",
+            "focus" => "pane.focus",
+            "write" => "pane.write",
+            "read" => "pane.read",
+            "split" => "pane.split",
+            "close" => "pane.close",
+            "resize" => "pane.resize",
+            "swap" => "pane.swap",
+            "zoom" => "pane.zoom",
+            _ => "",
+        };
+
+        return string.IsNullOrEmpty(method)
+            ? Error($"Unknown pane command: {subcommand}")
+            : await SendV2AndPrint(method, parsed);
     }
 
     private static async Task<int> HandleSurfaceResume(string[] args)
@@ -446,6 +478,44 @@ public static class Program
         CopyAlias(args, "workspace-ref", "workspace");
     }
 
+    private static void NormalizePaneArgs(string subcommand, Dictionary<string, string> args)
+    {
+        if (subcommand is "focus" or "close")
+            CopyAlias(args, "_arg0", "target");
+        else if (subcommand is "write")
+        {
+            CopyAlias(args, "_arg0", "text");
+            CopyAlias(args, "pane-ref", "target");
+        }
+        else if (subcommand is "read")
+        {
+            CopyAlias(args, "_arg0", "target");
+        }
+        else if (subcommand is "split")
+        {
+            CopyAlias(args, "_arg0", "direction");
+            CopyAlias(args, "pane-ref", "target");
+        }
+        else if (subcommand is "resize")
+        {
+            CopyAlias(args, "_arg0", "target");
+            CopyAlias(args, "_arg1", "delta");
+        }
+        else if (subcommand is "swap")
+        {
+            CopyAlias(args, "_arg0", "target");
+            CopyAlias(args, "_arg1", "other");
+        }
+        else if (subcommand is "zoom")
+        {
+            CopyAlias(args, "_arg0", "value");
+        }
+
+        CopyAlias(args, "workspace-ref", "workspace");
+        CopyAlias(args, "surface-ref", "surface");
+        CopyAlias(args, "pane-ref", "target");
+    }
+
     private static void CopyAlias(Dictionary<string, string> args, string source, string target)
     {
         if (args.ContainsKey(target))
@@ -509,6 +579,19 @@ public static class Program
                   --cwd <path>      Working directory override
                   --trusted <bool>  Mark binding trusted for future restore
                 resume clear        Clear binding by --id or focused/selected pane
+
+              pane                  Manage panes through ecode.v2
+                list                List panes in the selected surface
+                focus <ref|id>      Focus a pane, e.g. pane:1
+                write <text>        Write text to a pane
+                  --submit true     Send Enter after writing
+                read [ref|id]       Read pane tail text
+                  --lines <n>       Tail line count
+                split [direction]   Split focused pane; right/down
+                close [ref|id]      Close a pane
+                resize <ref|id> <d> Resize nearest split ratio by delta
+                swap <a> <b>        Swap two panes
+                zoom [true|false]   Set or toggle surface zoom
 
               split                 Split the focused pane
                 right               Split vertically (left/right)

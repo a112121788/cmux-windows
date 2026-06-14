@@ -13,6 +13,11 @@ using SurfaceV2ApiSurface = ECode.Services.SurfaceApiSurface<ECode.ViewModels.Su
 using SurfaceV2ApiWorkspace = ECode.Services.SurfaceApiWorkspace<ECode.ViewModels.WorkspaceViewModel, ECode.ViewModels.SurfaceViewModel>;
 using WorkspaceV2ApiService = ECode.Services.WorkspaceApiService<ECode.ViewModels.WorkspaceViewModel>;
 using WorkspaceV2ApiWorkspace = ECode.Services.WorkspaceApiWorkspace<ECode.ViewModels.WorkspaceViewModel>;
+using PaneV2ApiPane = ECode.Services.PaneApiPane<string>;
+using PaneV2ApiReadResult = ECode.Services.PaneApiReadResult;
+using PaneV2ApiService = ECode.Services.PaneApiService<ECode.ViewModels.WorkspaceViewModel, ECode.ViewModels.SurfaceViewModel, string>;
+using PaneV2ApiSurface = ECode.Services.PaneApiSurface<ECode.ViewModels.SurfaceViewModel, string>;
+using PaneV2ApiWorkspace = ECode.Services.PaneApiWorkspace<ECode.ViewModels.WorkspaceViewModel, ECode.ViewModels.SurfaceViewModel, string>;
 
 namespace ECode.ViewModels;
 
@@ -62,6 +67,7 @@ public partial class MainViewModel : ObservableObject
     private readonly BrowserScriptingService _browserScriptingService;
     private readonly SurfaceV2ApiService _surfaceApiService;
     private readonly WorkspaceV2ApiService _workspaceApiService;
+    private readonly PaneV2ApiService _paneApiService;
 
     public NotificationService NotificationService => _notificationService;
 
@@ -99,6 +105,17 @@ public partial class MainViewModel : ObservableObject
             CloseWorkspaceForV2Api,
             RenameWorkspaceForV2Api,
             ReorderWorkspacesForV2Api);
+        _paneApiService = new PaneV2ApiService(
+            CreatePaneApiWorkspaces,
+            SelectSurfaceForV2Api,
+            FocusPaneForV2Api,
+            WritePaneForV2Api,
+            ReadPaneForV2Api,
+            SplitPaneForV2Api,
+            ClosePaneForV2Api,
+            ResizePaneForV2Api,
+            SwapPanesForV2Api,
+            ZoomSurfaceForV2Api);
 
         // 连接命名管道的命令处理程序
         if (App.PipeServer != null)
@@ -549,6 +566,7 @@ public partial class MainViewModel : ObservableObject
                     var method when ECode.Services.WindowApiService<Window>.CanHandle(method) => App.WindowApi.HandleRequest(request),
                     var method when WorkspaceV2ApiService.CanHandle(method) => _workspaceApiService.HandleRequest(request),
                     var method when SurfaceV2ApiService.CanHandle(method) => _surfaceApiService.HandleRequest(request),
+                    var method when PaneV2ApiService.CanHandle(method) => _paneApiService.HandleRequest(request),
                     "status" => V2Response.FromResult(request.Id, ParseJsonElement(HandleStatus())),
                     _ => V2Response.FromStableError(
                         request.Id,
@@ -1323,6 +1341,135 @@ public partial class MainViewModel : ObservableObject
 
         WorkspaceOrderChanged?.Invoke();
         return true;
+    }
+
+    private IEnumerable<PaneV2ApiWorkspace> CreatePaneApiWorkspaces()
+    {
+        return Workspaces.Select((workspace, workspaceIndex) =>
+            new PaneV2ApiWorkspace(
+                Workspace: workspace,
+                WorkspaceId: workspace.Workspace.Id,
+                WorkspaceName: workspace.Name,
+                WorkspaceRef: new ShortRef(ShortRefKind.Workspace, workspaceIndex + 1),
+                IsCurrent: workspace == SelectedWorkspace,
+                Surfaces: workspace.Surfaces
+                    .Select((surface, surfaceIndex) =>
+                        new PaneV2ApiSurface(
+                            Surface: surface,
+                            SurfaceId: surface.Surface.Id,
+                            SurfaceName: surface.Name,
+                            SurfaceRef: new ShortRef(ShortRefKind.Surface, surfaceIndex + 1),
+                            IsCurrent: surface == workspace.SelectedSurface,
+                            Kind: surface.Surface.Kind.ToString(),
+                            IsZoomed: surface.IsZoomed,
+                            Panes: CreatePaneApiPanes(surface)))
+                    .ToList()));
+    }
+
+    private static IReadOnlyList<PaneV2ApiPane> CreatePaneApiPanes(SurfaceViewModel surface)
+    {
+        return surface.RootNode.GetLeaves()
+            .Select(leaf => leaf.PaneId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .Select((paneId, paneIndex) =>
+            {
+                surface.Surface.PaneCustomNames.TryGetValue(paneId, out var customName);
+                return new PaneV2ApiPane(
+                    Pane: paneId,
+                    PaneId: paneId,
+                    PaneRef: new ShortRef(ShortRefKind.Pane, paneIndex + 1),
+                    PaneName: string.IsNullOrWhiteSpace(customName) ? $"Pane {paneIndex + 1}" : customName!,
+                    IsFocused: string.Equals(surface.FocusedPaneId, paneId, StringComparison.Ordinal),
+                    WorkingDirectory: surface.GetSession(paneId)?.WorkingDirectory ?? "");
+            })
+            .ToList();
+    }
+
+    private bool FocusPaneForV2Api(SurfaceViewModel surface, string paneId)
+    {
+        if (surface.RootNode.FindNode(paneId) == null)
+            return false;
+
+        surface.FocusPane(paneId);
+        return true;
+    }
+
+    private bool WritePaneForV2Api(SurfaceViewModel surface, string paneId, string text, bool submit, string submitKey)
+    {
+        if (!FocusPaneForV2Api(surface, paneId))
+            return false;
+
+        var session = surface.GetSession(paneId);
+        if (session == null)
+            return false;
+
+        var textToWrite = submit ? text.TrimEnd('\r', '\n') : text;
+        if (!string.IsNullOrEmpty(textToWrite))
+            session.Write(textToWrite);
+
+        if (submit)
+        {
+            var submitSequence = ResolveSubmitSequence(submitKey);
+            if (!string.IsNullOrEmpty(submitSequence))
+                session.Write(submitSequence);
+
+            if (!string.IsNullOrWhiteSpace(textToWrite))
+                surface.RegisterCommandSubmission(paneId, textToWrite);
+        }
+
+        return true;
+    }
+
+    private PaneV2ApiReadResult? ReadPaneForV2Api(SurfaceViewModel surface, string paneId, int lines, int maxChars)
+    {
+        var session = surface.GetSession(paneId);
+        if (session == null)
+            return null;
+
+        var allText = session.Buffer.ExportPlainText(maxScrollbackLines: 20000);
+        var tailText = TailLines(allText, lines);
+        if (tailText.Length > maxChars)
+            tailText = "..." + tailText[^maxChars..];
+
+        return new PaneV2ApiReadResult(tailText, lines, maxChars);
+    }
+
+    private bool SplitPaneForV2Api(SurfaceViewModel surface, string paneId, SplitDirection direction, string? shell)
+    {
+        var before = surface.RootNode.GetLeaves().Count();
+        if (!FocusPaneForV2Api(surface, paneId))
+            return false;
+
+        surface.SplitFocused(direction, shell);
+        return surface.RootNode.GetLeaves().Count() > before;
+    }
+
+    private bool ClosePaneForV2Api(SurfaceViewModel surface, string paneId)
+    {
+        if (surface.RootNode.GetLeaves().Count() <= 1)
+            return false;
+
+        if (surface.RootNode.FindNode(paneId) == null)
+            return false;
+
+        surface.ClosePane(paneId);
+        return surface.RootNode.FindNode(paneId) == null;
+    }
+
+    private bool ResizePaneForV2Api(SurfaceViewModel surface, string paneId, double delta)
+    {
+        return surface.ResizePane(paneId, delta);
+    }
+
+    private bool SwapPanesForV2Api(SurfaceViewModel surface, string paneId, string otherPaneId)
+    {
+        return surface.SwapPanes(paneId, otherPaneId);
+    }
+
+    private bool ZoomSurfaceForV2Api(SurfaceViewModel surface, bool? zoomed)
+    {
+        return surface.SetZoom(zoomed);
     }
 
     private IEnumerable<SurfaceV2ApiWorkspace> CreateSurfaceApiWorkspaces()

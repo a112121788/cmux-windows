@@ -1120,6 +1120,246 @@ public class WorkspaceApiServiceTests
     }
 }
 
+public class PaneApiServiceTests
+{
+    [Fact]
+    public void PaneListFocusWriteAndRead_UseResolvedPaneRefs()
+    {
+        var workspace = CreateWorkspace();
+        var api = CreatePaneApi([workspace]);
+
+        var list = api.HandleRequest(CreateV2Request("pane.list", """{"idFormat":"both"}"""));
+
+        list.Error.Should().BeNull();
+        using var listResult = ParseResult(list);
+        var panes = listResult.RootElement.GetProperty("panes");
+        panes.GetArrayLength().Should().Be(2);
+        panes[0].GetProperty("ref").GetString().Should().Be("pane:1");
+        panes[1].GetProperty("id").GetString().Should().Be("pane-b");
+
+        var focus = api.HandleRequest(CreateV2Request("pane.focus", """{"target":"pane:2"}"""));
+
+        focus.Error.Should().BeNull();
+        workspace.Surfaces[0].FocusedPaneId.Should().Be("pane-b");
+
+        var write = api.HandleRequest(CreateV2Request("pane.write", """{"target":"pane:2","text":"npm test","submit":true}"""));
+
+        write.Error.Should().BeNull();
+        workspace.Surfaces[0].Panes[1].Writes.Should().Equal("npm test", "<auto>");
+
+        var read = api.HandleRequest(CreateV2Request("pane.read", """{"target":"pane:2","lines":12,"maxChars":1024}"""));
+
+        read.Error.Should().BeNull();
+        using var readResult = ParseResult(read);
+        readResult.RootElement.GetProperty("text").GetString().Should().Be("pane-b output");
+        readResult.RootElement.GetProperty("lines").GetInt32().Should().Be(12);
+    }
+
+    [Fact]
+    public void PaneSplitCloseResizeSwapAndZoom_UpdatePaneState()
+    {
+        var workspace = CreateWorkspace();
+        var surface = workspace.Surfaces[0];
+        var api = CreatePaneApi([workspace]);
+
+        var split = api.HandleRequest(CreateV2Request("pane.split", """{"target":"pane:1","direction":"down"}"""));
+
+        split.Error.Should().BeNull();
+        surface.Panes.Should().HaveCount(3);
+        surface.FocusedPaneId.Should().Be("pane-3");
+
+        var resize = api.HandleRequest(CreateV2Request("pane.resize", """{"target":"pane:1","delta":0.2}"""));
+
+        resize.Error.Should().BeNull();
+        surface.LastResize.Should().Be(("pane-a", 0.2));
+
+        var swap = api.HandleRequest(CreateV2Request("pane.swap", """{"target":"pane:1","other":"pane:2"}"""));
+
+        swap.Error.Should().BeNull();
+        surface.Panes.Select(pane => pane.Id).Take(2).Should().Equal("pane-3", "pane-a");
+
+        var zoom = api.HandleRequest(CreateV2Request("pane.zoom", """{"zoomed":true}"""));
+
+        zoom.Error.Should().BeNull();
+        surface.IsZoomed.Should().BeTrue();
+
+        var close = api.HandleRequest(CreateV2Request("pane.close", """{"target":"pane:2"}"""));
+
+        close.Error.Should().BeNull();
+        surface.Panes.Select(pane => pane.Id).Should().NotContain("pane-a");
+    }
+
+    private static ECode.Services.PaneApiService<TestWorkspace, TestSurface, TestPane> CreatePaneApi(List<TestWorkspace> workspaces)
+    {
+        return new ECode.Services.PaneApiService<TestWorkspace, TestSurface, TestPane>(
+            workspaceProvider: () => workspaces.Select((workspace, workspaceIndex) =>
+                new ECode.Services.PaneApiWorkspace<TestWorkspace, TestSurface, TestPane>(
+                    Workspace: workspace,
+                    WorkspaceId: workspace.Id,
+                    WorkspaceName: workspace.Name,
+                    WorkspaceRef: new ShortRef(ShortRefKind.Workspace, workspaceIndex + 1),
+                    IsCurrent: workspace.IsCurrent,
+                    Surfaces: workspace.Surfaces.Select((surface, surfaceIndex) =>
+                        new ECode.Services.PaneApiSurface<TestSurface, TestPane>(
+                            Surface: surface,
+                            SurfaceId: surface.Id,
+                            SurfaceName: surface.Name,
+                            SurfaceRef: new ShortRef(ShortRefKind.Surface, surfaceIndex + 1),
+                            IsCurrent: surface.IsCurrent,
+                            Kind: "Terminal",
+                            IsZoomed: surface.IsZoomed,
+                            Panes: surface.Panes.Select((pane, paneIndex) =>
+                                new ECode.Services.PaneApiPane<TestPane>(
+                                    Pane: pane,
+                                    PaneId: pane.Id,
+                                    PaneRef: new ShortRef(ShortRefKind.Pane, paneIndex + 1),
+                                    PaneName: pane.Name,
+                                    IsFocused: pane.Id == surface.FocusedPaneId,
+                                    WorkingDirectory: pane.WorkingDirectory))
+                                .ToList()))
+                        .ToList())),
+            selectSurface: (workspace, surface) =>
+            {
+                foreach (var candidateWorkspace in workspaces)
+                    candidateWorkspace.IsCurrent = ReferenceEquals(candidateWorkspace, workspace);
+                foreach (var candidateSurface in workspace.Surfaces)
+                    candidateSurface.IsCurrent = ReferenceEquals(candidateSurface, surface);
+            },
+            focusPane: (surface, paneId) =>
+            {
+                if (surface.Panes.All(pane => pane.Id != paneId))
+                    return false;
+                surface.FocusedPaneId = paneId;
+                return true;
+            },
+            writePane: (surface, paneId, text, submit, submitKey) =>
+            {
+                var pane = surface.Panes.FirstOrDefault(item => item.Id == paneId);
+                if (pane == null)
+                    return false;
+                if (!string.IsNullOrEmpty(text))
+                    pane.Writes.Add(text);
+                if (submit)
+                    pane.Writes.Add($"<{submitKey}>");
+                return true;
+            },
+            readPane: (surface, paneId, lines, maxChars) =>
+            {
+                var pane = surface.Panes.FirstOrDefault(item => item.Id == paneId);
+                return pane == null ? null : new ECode.Services.PaneApiReadResult(pane.ReadText, lines, maxChars);
+            },
+            splitPane: (surface, paneId, direction, shell) =>
+            {
+                var index = surface.Panes.FindIndex(pane => pane.Id == paneId);
+                if (index < 0)
+                    return false;
+                var pane = new TestPane($"pane-{surface.Panes.Count + 1}", $"Pane {surface.Panes.Count + 1}");
+                surface.Panes.Insert(index + 1, pane);
+                surface.FocusedPaneId = pane.Id;
+                surface.LastSplitDirection = direction;
+                return true;
+            },
+            closePane: (surface, paneId) =>
+            {
+                if (surface.Panes.Count <= 1)
+                    return false;
+                var pane = surface.Panes.FirstOrDefault(item => item.Id == paneId);
+                if (pane == null)
+                    return false;
+                surface.Panes.Remove(pane);
+                surface.FocusedPaneId = surface.Panes[0].Id;
+                return true;
+            },
+            resizePane: (surface, paneId, delta) =>
+            {
+                if (surface.Panes.All(pane => pane.Id != paneId))
+                    return false;
+                surface.LastResize = (paneId, delta);
+                return true;
+            },
+            swapPanes: (surface, paneId, otherPaneId) =>
+            {
+                var first = surface.Panes.FindIndex(pane => pane.Id == paneId);
+                var second = surface.Panes.FindIndex(pane => pane.Id == otherPaneId);
+                if (first < 0 || second < 0)
+                    return false;
+                (surface.Panes[first], surface.Panes[second]) = (surface.Panes[second], surface.Panes[first]);
+                return true;
+            },
+            zoomSurface: (surface, zoomed) =>
+            {
+                surface.IsZoomed = zoomed ?? !surface.IsZoomed;
+                return true;
+            });
+    }
+
+    private static TestWorkspace CreateWorkspace()
+    {
+        return new TestWorkspace("workspace-1", "Project")
+        {
+            IsCurrent = true,
+            Surfaces =
+            [
+                new TestSurface("surface-1", "Terminal")
+                {
+                    IsCurrent = true,
+                    FocusedPaneId = "pane-a",
+                    Panes =
+                    [
+                        new TestPane("pane-a", "Pane A") { ReadText = "pane-a output" },
+                        new TestPane("pane-b", "Pane B") { ReadText = "pane-b output" },
+                    ],
+                },
+            ],
+        };
+    }
+
+    private static V2Request CreateV2Request(string method, string parameters)
+    {
+        return new V2Request
+        {
+            Id = JsonSerializer.SerializeToElement("test-request"),
+            Method = method,
+            Params = JsonDocument.Parse(parameters).RootElement.Clone(),
+        };
+    }
+
+    private static JsonDocument ParseResult(V2Response response)
+    {
+        response.Result.Should().NotBeNull();
+        return JsonDocument.Parse(JsonSerializer.Serialize(response.Result));
+    }
+
+    private sealed class TestWorkspace(string id, string name)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public bool IsCurrent { get; set; }
+        public List<TestSurface> Surfaces { get; set; } = [];
+    }
+
+    private sealed class TestSurface(string id, string name)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public bool IsCurrent { get; set; }
+        public bool IsZoomed { get; set; }
+        public string? FocusedPaneId { get; set; }
+        public SplitDirection? LastSplitDirection { get; set; }
+        public (string PaneId, double Delta)? LastResize { get; set; }
+        public List<TestPane> Panes { get; set; } = [];
+    }
+
+    private sealed class TestPane(string id, string name)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public string WorkingDirectory { get; set; } = "";
+        public string ReadText { get; set; } = "";
+        public List<string> Writes { get; } = [];
+    }
+}
+
 public class BrowserScriptingServiceTests
 {
     [Fact]

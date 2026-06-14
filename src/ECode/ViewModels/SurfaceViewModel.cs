@@ -846,6 +846,30 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void ToggleZoom() => IsZoomed = !IsZoomed;
 
+    public bool SetZoom(bool? zoomed)
+    {
+        IsZoomed = zoomed ?? !IsZoomed;
+        return true;
+    }
+
+    public bool ResizePane(string paneId, double delta)
+    {
+        var resized = RootNode.ResizePane(paneId, delta);
+        if (resized)
+            OnPropertyChanged(nameof(RootNode));
+
+        return resized;
+    }
+
+    public bool SwapPanes(string paneId, string otherPaneId)
+    {
+        var swapped = RootNode.SwapPanes(paneId, otherPaneId);
+        if (swapped)
+            OnPropertyChanged(nameof(RootNode));
+
+        return swapped;
+    }
+
     public void EqualizePanes()
     {
         RootNode.Equalize();

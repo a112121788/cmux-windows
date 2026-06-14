@@ -58,6 +58,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 - 新增 `window.list/current/focus/create/close` ecode.v2 API，并提供 `ecode window ...` CLI 入口。
 - 新增 `workspace.list/create/select/close/rename/reorder` ecode.v2 API，并将 `ecode workspace ...` 接入 v2 响应。
 - 新增 `surface.move` / `surface.reorder` ecode.v2 API，并提供 `ecode surface move|reorder` CLI 入口。
+- 新增 `pane.list/focus/write/read/split/close/resize/swap/zoom` ecode.v2 API，并提供 `ecode pane ...` CLI 入口。
 - 新增 `ecode browser open|new|open-split <url>` 与 `BROWSER.OPEN*` IPC，可从 CLI 创建或复用 Browser Surface。
 - Browser 工具栏新增停止加载、开发者工具与加载进度状态。
 - `.ecode/ecode.json` 新增 `workspace.surfaces` Browser Surface layout 支持，启动或重载配置时可创建 / 复用浏览器标签页。

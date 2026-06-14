@@ -208,7 +208,7 @@
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
 | `M5-C-01` | `[x]` `workspace.list/create/select/close/rename/reorder` | v2 协议层 | contract 测试 |
-| `M5-C-02` | `pane.list/focus/write/read/split/close/resize/swap/zoom` | 同上 | contract 测试 |
+| `M5-C-02` | `[x]` `pane.list/focus/write/read/split/close/resize/swap/zoom` | 同上 | contract 测试 |
 | `M5-C-03` | `notification.list/read/unread/jump-latest/clear` | 同上 | contract 测试 |
 | `M5-C-04` | `config.reload` / `config.diagnostics` | 同上 | contract 测试 |
 | `M5-C-05` | `status` / `health` | 同上 | contract 测试 |
