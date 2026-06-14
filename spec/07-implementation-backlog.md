@@ -157,7 +157,7 @@
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
 | `M4-A-01` | `[x]` v2 协议层基础（先做 v2 框架；具体 method 在 M4 落地） | `ECode.Core/IPC/v2/*` | `protocol:ecode.v2` 请求可被解析 |
-| `M4-A-02` | 稳定错误码：`invalid_ref / not_found / stale_ref / not_supported / timeout / internal_error` | 同上 | contract 测试覆盖所有错误码 |
+| `M4-A-02` | `[x]` 稳定错误码：`invalid_ref / not_found / stale_ref / not_supported / timeout / internal_error` | 同上 | contract 测试覆盖所有错误码 |
 
 ### 包 B：脚本化服务
 

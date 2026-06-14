@@ -324,6 +324,54 @@ public class V2ProtocolTests
         parsed.ErrorResponse.Id!.Value.GetString().Should().Be("req-2");
         parsed.ErrorResponse.Error!.Code.Should().Be("invalid_request");
     }
+
+    [Theory]
+    [InlineData(V2ErrorCodes.InvalidRef, "invalid_ref")]
+    [InlineData(V2ErrorCodes.NotFound, "not_found")]
+    [InlineData(V2ErrorCodes.StaleRef, "stale_ref")]
+    [InlineData(V2ErrorCodes.NotSupported, "not_supported")]
+    [InlineData(V2ErrorCodes.Timeout, "timeout")]
+    [InlineData(V2ErrorCodes.InternalError, "internal_error")]
+    public void StableErrorCodes_MatchBrowserScriptingContract(string code, string expected)
+    {
+        code.Should().Be(expected);
+        V2ErrorCodes.IsStable(code).Should().BeTrue();
+        V2ErrorCodes.All.Should().ContainSingle(item => item == code);
+    }
+
+    [Theory]
+    [InlineData(V2ErrorCodes.InvalidRef)]
+    [InlineData(V2ErrorCodes.NotFound)]
+    [InlineData(V2ErrorCodes.StaleRef)]
+    [InlineData(V2ErrorCodes.NotSupported)]
+    [InlineData(V2ErrorCodes.Timeout)]
+    [InlineData(V2ErrorCodes.InternalError)]
+    public void FromStableError_SerializesContractErrorShape(string code)
+    {
+        using var requestId = JsonDocument.Parse("\"req-stable\"");
+        var id = requestId.RootElement.Clone();
+
+        var response = V2Response.FromStableError(id, code, "contract error");
+        var json = JsonSerializer.Serialize(response);
+        using var serialized = JsonDocument.Parse(json);
+
+        response.Protocol.Should().Be(V2Protocol.ProtocolName);
+        response.Id!.Value.GetString().Should().Be("req-stable");
+        response.Result.Should().BeNull();
+        response.Error.Should().NotBeNull();
+        response.Error!.Code.Should().Be(code);
+        response.Error.Message.Should().Be("contract error");
+        serialized.RootElement.GetProperty("error").GetProperty("code").GetString().Should().Be(code);
+    }
+
+    [Fact]
+    public void FromStableError_RejectsUnknownCode()
+    {
+        var act = () => V2Response.FromStableError(null, "invalid_request", "parse error");
+
+        act.Should().Throw<ArgumentException>()
+            .WithParameterName("code");
+    }
 }
 
 /// <summary>

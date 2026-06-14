@@ -45,6 +45,14 @@ public sealed record V2Response
         Id = id,
         Error = new V2Error(code, message),
     };
+
+    public static V2Response FromStableError(JsonElement? id, string code, string message)
+    {
+        if (!V2ErrorCodes.IsStable(code))
+            throw new ArgumentException($"Unknown stable v2 error code: {code}", nameof(code));
+
+        return FromError(id, code, message);
+    }
 }
 
 public sealed record V2Error(
@@ -52,6 +60,33 @@ public sealed record V2Error(
     [property: JsonPropertyName("message")] string Message);
 
 public sealed record V2ParseResult(bool Success, V2Request? Request, V2Response? ErrorResponse);
+
+public static class V2ErrorCodes
+{
+    public const string InvalidRef = "invalid_ref";
+    public const string NotFound = "not_found";
+    public const string StaleRef = "stale_ref";
+    public const string NotSupported = "not_supported";
+    public const string Timeout = "timeout";
+    public const string InternalError = "internal_error";
+
+    private static readonly string[] AllErrorCodes =
+    {
+        InvalidRef,
+        NotFound,
+        StaleRef,
+        NotSupported,
+        Timeout,
+        InternalError,
+    };
+
+    public static IReadOnlyList<string> All => AllErrorCodes;
+
+    public static bool IsStable(string code)
+    {
+        return Array.Exists(AllErrorCodes, item => string.Equals(item, code, StringComparison.Ordinal));
+    }
+}
 
 public static class V2Protocol
 {
