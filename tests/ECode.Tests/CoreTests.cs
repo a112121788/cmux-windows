@@ -796,6 +796,141 @@ public class WindowApiServiceTests
     }
 }
 
+public class SurfaceApiServiceTests
+{
+    [Fact]
+    public void SurfaceMove_AcceptsShortRefAndMovesWithinWorkspace()
+    {
+        var workspace = CreateWorkspace("workspace-1", "Project", "surface-a", "surface-b", "surface-c");
+        var api = CreateSurfaceApi([workspace]);
+
+        var response = api.HandleRequest(CreateV2Request("surface.move", """{"target":"surface:2","targetIndex":1,"idFormat":"both"}"""));
+
+        response.Error.Should().BeNull();
+        workspace.Surfaces.Select(surface => surface.Id).Should().Equal("surface-b", "surface-a", "surface-c");
+        workspace.SelectedSurfaceId.Should().Be("surface-b");
+        using var result = ParseResult(response);
+        result.RootElement.GetProperty("moved").GetBoolean().Should().BeTrue();
+        result.RootElement.GetProperty("surface").GetProperty("ref").GetString().Should().Be("surface:1");
+        result.RootElement.GetProperty("surface").GetProperty("id").GetString().Should().Be("surface-b");
+    }
+
+    [Fact]
+    public void SurfaceReorder_AcceptsFullRefOrder()
+    {
+        var workspace = CreateWorkspace("workspace-1", "Project", "surface-a", "surface-b", "surface-c");
+        var api = CreateSurfaceApi([workspace]);
+
+        var response = api.HandleRequest(CreateV2Request("surface.reorder", """{"order":["surface:3","surface:1","surface:2"],"idFormat":"refs"}"""));
+
+        response.Error.Should().BeNull();
+        workspace.Surfaces.Select(surface => surface.Id).Should().Equal("surface-c", "surface-a", "surface-b");
+        using var result = ParseResult(response);
+        var surfaces = result.RootElement.GetProperty("surfaces");
+        surfaces[0].GetProperty("ref").GetString().Should().Be("surface:1");
+        surfaces[0].GetProperty("name").GetString().Should().Be("surface-c");
+        surfaces[0].TryGetProperty("id", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void SurfaceReorder_RejectsDuplicateOrderEntries()
+    {
+        var workspace = CreateWorkspace("workspace-1", "Project", "surface-a", "surface-b");
+        var api = CreateSurfaceApi([workspace]);
+
+        var response = api.HandleRequest(CreateV2Request("surface.reorder", """{"order":["surface:1","surface:1"]}"""));
+
+        response.Error.Should().NotBeNull();
+        response.Error!.Code.Should().Be(V2ErrorCodes.InvalidRef);
+        workspace.Surfaces.Select(surface => surface.Id).Should().Equal("surface-a", "surface-b");
+    }
+
+    private static ECode.Services.SurfaceApiService<TestWorkspace, TestSurface> CreateSurfaceApi(List<TestWorkspace> workspaces)
+    {
+        return new ECode.Services.SurfaceApiService<TestWorkspace, TestSurface>(
+            workspaceProvider: () => workspaces.Select((workspace, workspaceIndex) =>
+                new ECode.Services.SurfaceApiWorkspace<TestWorkspace, TestSurface>(
+                    Workspace: workspace,
+                    WorkspaceId: workspace.Id,
+                    WorkspaceName: workspace.Name,
+                    WorkspaceRef: new ShortRef(ShortRefKind.Workspace, workspaceIndex + 1),
+                    IsCurrent: workspaceIndex == 0,
+                    Surfaces: workspace.Surfaces
+                        .Select((surface, surfaceIndex) =>
+                            new ECode.Services.SurfaceApiSurface<TestSurface>(
+                                Surface: surface,
+                                SurfaceId: surface.Id,
+                                SurfaceName: surface.Name,
+                                SurfaceRef: new ShortRef(ShortRefKind.Surface, surfaceIndex + 1),
+                                IsCurrent: surface.Id == workspace.SelectedSurfaceId,
+                                Kind: surface.Kind))
+                        .ToList())),
+            moveSurface: (workspace, surface, targetIndex) =>
+            {
+                var sourceIndex = workspace.Surfaces.IndexOf(surface);
+                if (sourceIndex < 0)
+                    return false;
+
+                if (sourceIndex == targetIndex)
+                    return true;
+
+                workspace.Surfaces.RemoveAt(sourceIndex);
+                workspace.Surfaces.Insert(targetIndex, surface);
+                return true;
+            },
+            reorderSurfaces: (workspace, surfaceIds) =>
+            {
+                var surfaces = surfaceIds
+                    .Select(id => workspace.Surfaces.FirstOrDefault(surface => surface.Id == id))
+                    .ToList();
+                if (surfaces.Any(surface => surface == null))
+                    return false;
+
+                workspace.Surfaces.Clear();
+                foreach (var surface in surfaces)
+                    workspace.Surfaces.Add(surface!);
+
+                return true;
+            },
+            selectSurface: (workspace, surface) => workspace.SelectedSurfaceId = surface.Id);
+    }
+
+    private static TestWorkspace CreateWorkspace(string id, string name, params string[] surfaceIds)
+    {
+        return new TestWorkspace(
+            id,
+            name,
+            surfaceIds.Select(surfaceId => new TestSurface(surfaceId, surfaceId)).ToList(),
+            surfaceIds.FirstOrDefault());
+    }
+
+    private static V2Request CreateV2Request(string method, string parameters)
+    {
+        return new V2Request
+        {
+            Id = JsonSerializer.SerializeToElement("test-request"),
+            Method = method,
+            Params = JsonDocument.Parse(parameters).RootElement.Clone(),
+        };
+    }
+
+    private static JsonDocument ParseResult(V2Response response)
+    {
+        response.Result.Should().NotBeNull();
+        return JsonDocument.Parse(JsonSerializer.Serialize(response.Result));
+    }
+
+    private sealed class TestWorkspace(string id, string name, List<TestSurface> surfaces, string? selectedSurfaceId)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public List<TestSurface> Surfaces { get; } = surfaces;
+        public string? SelectedSurfaceId { get; set; } = selectedSurfaceId;
+    }
+
+    private sealed record TestSurface(string Id, string Name, string Kind = "Terminal");
+}
+
 public class BrowserScriptingServiceTests
 {
     [Fact]

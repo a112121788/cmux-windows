@@ -162,11 +162,27 @@ public static class Program
         return subcommand switch
         {
             "create" or "new" => await SendAndPrint("SURFACE.CREATE"),
+            "move" => await HandleSurfaceMove(args[1..]),
+            "reorder" => await HandleSurfaceReorder(args[1..]),
             "next" => await SendAndPrint("SURFACE.NEXT"),
             "previous" or "prev" => await SendAndPrint("SURFACE.PREVIOUS"),
             "resume" => await HandleSurfaceResume(args[1..]),
             _ => Error($"Unknown surface command: {subcommand}"),
         };
+    }
+
+    private static async Task<int> HandleSurfaceMove(string[] args)
+    {
+        var parsed = ParseArgs(args);
+        NormalizeSurfaceMoveArgs(parsed);
+        return await SendV2AndPrint("surface.move", parsed);
+    }
+
+    private static async Task<int> HandleSurfaceReorder(string[] args)
+    {
+        var parsed = ParseArgs(args);
+        NormalizeSurfaceReorderArgs(parsed);
+        return await SendV2AndPrint("surface.reorder", parsed);
     }
 
     private static async Task<int> HandleSurfaceResume(string[] args)
@@ -392,6 +408,21 @@ public static class Program
             CopyAlias(args, "_arg0", "title");
     }
 
+    private static void NormalizeSurfaceMoveArgs(Dictionary<string, string> args)
+    {
+        CopyAlias(args, "_arg0", "target");
+        CopyAlias(args, "_arg1", "targetIndex");
+        CopyAlias(args, "to", "targetIndex");
+        CopyAlias(args, "workspace-ref", "workspace");
+        CopyAlias(args, "surface-ref", "target");
+    }
+
+    private static void NormalizeSurfaceReorderArgs(Dictionary<string, string> args)
+    {
+        CopyAlias(args, "_arg0", "order");
+        CopyAlias(args, "workspace-ref", "workspace");
+    }
+
     private static void CopyAlias(Dictionary<string, string> args, string source, string target)
     {
         if (args.ContainsKey(target))
@@ -438,6 +469,8 @@ public static class Program
 
               surface               Manage surfaces (tabs within project)
                 create              Create a new surface
+                move <ref|id> <n>   Move a surface to index n within its workspace
+                reorder <order>     Reorder surfaces, e.g. "surface:2,surface:1"
                 next                Switch to next surface
                 previous            Switch to previous surface
                 resume show         Show resume binding for focused/selected pane

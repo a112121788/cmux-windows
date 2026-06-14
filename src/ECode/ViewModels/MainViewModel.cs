@@ -8,6 +8,9 @@ using ECode.Core.IPC.V2;
 using ECode.Core.Models;
 using ECode.Core.Services;
 using BrowserScriptingRuntime = ECode.Services.BrowserScriptingRuntime;
+using SurfaceV2ApiService = ECode.Services.SurfaceApiService<ECode.ViewModels.WorkspaceViewModel, ECode.ViewModels.SurfaceViewModel>;
+using SurfaceV2ApiSurface = ECode.Services.SurfaceApiSurface<ECode.ViewModels.SurfaceViewModel>;
+using SurfaceV2ApiWorkspace = ECode.Services.SurfaceApiWorkspace<ECode.ViewModels.WorkspaceViewModel, ECode.ViewModels.SurfaceViewModel>;
 
 namespace ECode.ViewModels;
 
@@ -55,6 +58,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly NotificationService _notificationService;
     private readonly BrowserScriptingService _browserScriptingService;
+    private readonly SurfaceV2ApiService _surfaceApiService;
 
     public NotificationService NotificationService => _notificationService;
 
@@ -80,6 +84,11 @@ public partial class MainViewModel : ObservableObject
                     Kind: surface.Surface.Kind,
                     Url: surface.Surface.BrowserUrl,
                     Title: surface.Surface.BrowserTitle))));
+        _surfaceApiService = new SurfaceV2ApiService(
+            CreateSurfaceApiWorkspaces,
+            MoveSurfaceForV2Api,
+            ReorderSurfacesForV2Api,
+            SelectSurfaceForV2Api);
 
         // 连接命名管道的命令处理程序
         if (App.PipeServer != null)
@@ -522,6 +531,7 @@ public partial class MainViewModel : ObservableObject
                 return request.Method switch
                 {
                     var method when ECode.Services.WindowApiService<Window>.CanHandle(method) => App.WindowApi.HandleRequest(request),
+                    var method when SurfaceV2ApiService.CanHandle(method) => _surfaceApiService.HandleRequest(request),
                     "status" => V2Response.FromResult(request.Id, ParseJsonElement(HandleStatus())),
                     _ => V2Response.FromStableError(
                         request.Id,
@@ -1229,6 +1239,71 @@ public partial class MainViewModel : ObservableObject
             Kind: surface.Surface.Kind,
             Url: surface.Surface.BrowserUrl,
             Title: surface.Surface.BrowserTitle));
+    }
+
+    private IEnumerable<SurfaceV2ApiWorkspace> CreateSurfaceApiWorkspaces()
+    {
+        return Workspaces.Select((workspace, workspaceIndex) =>
+            new SurfaceV2ApiWorkspace(
+                Workspace: workspace,
+                WorkspaceId: workspace.Workspace.Id,
+                WorkspaceName: workspace.Name,
+                WorkspaceRef: new ShortRef(ShortRefKind.Workspace, workspaceIndex + 1),
+                IsCurrent: workspace == SelectedWorkspace,
+                Surfaces: workspace.Surfaces
+                    .Select((surface, surfaceIndex) =>
+                        new SurfaceV2ApiSurface(
+                            Surface: surface,
+                            SurfaceId: surface.Surface.Id,
+                            SurfaceName: surface.Name,
+                            SurfaceRef: new ShortRef(ShortRefKind.Surface, surfaceIndex + 1),
+                            IsCurrent: surface == workspace.SelectedSurface,
+                            Kind: surface.Surface.Kind.ToString()))
+                    .ToList()));
+    }
+
+    private bool MoveSurfaceForV2Api(WorkspaceViewModel workspace, SurfaceViewModel surface, int targetIndex)
+    {
+        var sourceIndex = workspace.Surfaces.IndexOf(surface);
+        if (sourceIndex < 0)
+            return false;
+
+        if (sourceIndex == targetIndex)
+            return true;
+
+        var moved = workspace.MoveSurface(surface, targetIndex);
+        if (moved)
+            WorkspaceOrderChanged?.Invoke();
+
+        return moved;
+    }
+
+    private bool ReorderSurfacesForV2Api(WorkspaceViewModel workspace, IReadOnlyList<string> surfaceIds)
+    {
+        if (surfaceIds.Count != workspace.Surfaces.Count)
+            return false;
+
+        var currentOrder = workspace.Surfaces.Select(surface => surface.Surface.Id).ToList();
+        if (currentOrder.SequenceEqual(surfaceIds))
+            return true;
+
+        for (var targetIndex = 0; targetIndex < surfaceIds.Count; targetIndex++)
+        {
+            var surface = workspace.Surfaces.FirstOrDefault(item => item.Surface.Id == surfaceIds[targetIndex]);
+            if (surface == null)
+                return false;
+
+            workspace.MoveSurface(surface, targetIndex);
+        }
+
+        WorkspaceOrderChanged?.Invoke();
+        return true;
+    }
+
+    private void SelectSurfaceForV2Api(WorkspaceViewModel workspace, SurfaceViewModel surface)
+    {
+        SelectedWorkspace = workspace;
+        workspace.SelectedSurface = surface;
     }
 
     private string HandleSplit(SplitDirection direction)
