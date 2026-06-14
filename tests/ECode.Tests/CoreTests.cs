@@ -7,6 +7,7 @@ using ECode.Core.IPC.V2;
 using ECode.Core.Models;
 using ECode.Core.Services;
 using ECode.Core.Terminal;
+using ECode.Cli.Commands;
 using FluentAssertions;
 using Xunit;
 
@@ -438,6 +439,65 @@ public class StatusApiServiceTests
     {
         response.Result.Should().NotBeNull();
         return JsonDocument.Parse(JsonSerializer.Serialize(response.Result));
+    }
+}
+
+public class ShellSetupTests
+{
+    [Fact]
+    public void InstallThenUninstall_RestoresPathAndProfileBlocks()
+    {
+        var installDirectory = @"C:\Tools\ECode";
+        var before = new ShellSetupState(
+            UserPath: @"C:\Windows;C:\Tools",
+            PowerShellProfile: "Write-Host 'hello'",
+            CmdAutoRun: "@echo off");
+
+        var installed = ShellSetup.CreateInstallPlan(before, installDirectory);
+
+        installed.UserPath.Should().Be(@"C:\Windows;C:\Tools;C:\Tools\ECode");
+        installed.PowerShellProfile.Should().Contain(ShellSetup.PowerShellBeginMarker);
+        installed.PowerShellProfile.Should().Contain("$ecodeBin = 'C:\\Tools\\ECode'");
+        installed.CmdAutoRun.Should().Contain(ShellSetup.CmdBeginMarker);
+        installed.CmdAutoRun.Should().Contain(@"doskey ecode=""C:\Tools\ECode\ecode.exe"" $*");
+
+        var uninstalled = ShellSetup.CreateUninstallPlan(installed, installDirectory);
+
+        uninstalled.UserPath.Should().Be(before.UserPath);
+        uninstalled.PowerShellProfile.Should().Be(before.PowerShellProfile);
+        uninstalled.CmdAutoRun.Should().Be(before.CmdAutoRun);
+    }
+
+    [Fact]
+    public void InstallPlan_IsIdempotentAndMatchesPathCaseInsensitively()
+    {
+        var installDirectory = @"C:\Tools\ECode";
+        var before = new ShellSetupState(
+            UserPath: @"C:\Windows;c:\tools\ecode\",
+            PowerShellProfile: "",
+            CmdAutoRun: "");
+
+        var installed = ShellSetup.CreateInstallPlan(before, installDirectory);
+        var installedAgain = ShellSetup.CreateInstallPlan(installed, installDirectory);
+
+        installedAgain.UserPath.Split(';').Count(entry =>
+            string.Equals(entry.TrimEnd('\\'), installDirectory, StringComparison.OrdinalIgnoreCase))
+            .Should().Be(1);
+        CountOccurrences(installedAgain.PowerShellProfile, ShellSetup.PowerShellBeginMarker).Should().Be(1);
+        CountOccurrences(installedAgain.CmdAutoRun, ShellSetup.CmdBeginMarker).Should().Be(1);
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 }
 
