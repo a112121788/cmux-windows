@@ -665,6 +665,137 @@ public class WindowManagerServiceTests
     }
 }
 
+public class WindowApiServiceTests
+{
+    [Fact]
+    public void WindowList_ReturnsRefsAndIdsForAllRegisteredWindows()
+    {
+        var manager = new ECode.Services.WindowManagerService<object>();
+        var first = manager.RegisterWindow(new object(), "First");
+        var second = manager.RegisterWindow(new object(), "Second");
+        var api = new ECode.Services.WindowApiService<object>(manager);
+
+        var response = api.HandleRequest(CreateV2Request("window.list", """{"idFormat":"both"}"""));
+
+        response.Error.Should().BeNull();
+        using var result = ParseResult(response);
+        var windows = result.RootElement.GetProperty("windows");
+        windows.GetArrayLength().Should().Be(2);
+        windows[0].GetProperty("ref").GetString().Should().Be("window:1");
+        windows[0].GetProperty("id").GetString().Should().Be(first.Id);
+        windows[1].GetProperty("ref").GetString().Should().Be("window:2");
+        windows[1].GetProperty("id").GetString().Should().Be(second.Id);
+        result.RootElement.GetProperty("current").GetProperty("id").GetString().Should().Be(second.Id);
+    }
+
+    [Fact]
+    public void WindowCurrent_ReturnsCurrentWindowOnly()
+    {
+        var manager = new ECode.Services.WindowManagerService<object>();
+        manager.RegisterWindow(new object(), "First");
+        var second = manager.RegisterWindow(new object(), "Second");
+        var api = new ECode.Services.WindowApiService<object>(manager);
+
+        var response = api.HandleRequest(CreateV2Request("window.current", """{"idFormat":"refs"}"""));
+
+        response.Error.Should().BeNull();
+        using var result = ParseResult(response);
+        var window = result.RootElement.GetProperty("window");
+        window.GetProperty("ref").GetString().Should().Be("window:2");
+        window.TryGetProperty("id", out _).Should().BeFalse();
+        second.Ref.Should().Be(new ShortRef(ShortRefKind.Window, 2));
+    }
+
+    [Fact]
+    public void WindowFocus_AcceptsShortRefAndUpdatesCurrentWindow()
+    {
+        var manager = new ECode.Services.WindowManagerService<object>();
+        var first = manager.RegisterWindow(new object(), "First");
+        manager.RegisterWindow(new object(), "Second");
+        var focused = false;
+        var api = new ECode.Services.WindowApiService<object>(
+            manager,
+            focusWindow: _ => focused = true);
+
+        var response = api.HandleRequest(CreateV2Request("window.focus", """{"target":"window:1","idFormat":"both"}"""));
+
+        response.Error.Should().BeNull();
+        focused.Should().BeTrue();
+        manager.CurrentWindowId.Should().Be(first.Id);
+        using var result = ParseResult(response);
+        result.RootElement.GetProperty("focused").GetBoolean().Should().BeTrue();
+        result.RootElement.GetProperty("window").GetProperty("id").GetString().Should().Be(first.Id);
+    }
+
+    [Fact]
+    public void WindowCreateAndClose_UseConfiguredLifecycleCallbacks()
+    {
+        var manager = new ECode.Services.WindowManagerService<object>();
+        var shown = false;
+        var closed = false;
+        string? createdTitle = null;
+        var api = new ECode.Services.WindowApiService<object>(
+            manager,
+            windowFactory: title =>
+            {
+                createdTitle = title;
+                return new object();
+            },
+            showWindow: _ => shown = true,
+            closeWindow: _ => closed = true);
+
+        var create = api.HandleRequest(CreateV2Request("window.create", """{"title":"Aux","idFormat":"both"}"""));
+
+        create.Error.Should().BeNull();
+        shown.Should().BeTrue();
+        createdTitle.Should().Be("Aux");
+        manager.Count.Should().Be(1);
+        using var createResult = ParseResult(create);
+        var createdId = createResult.RootElement.GetProperty("window").GetProperty("id").GetString();
+        createResult.RootElement.GetProperty("window").GetProperty("title").GetString().Should().Be("Aux");
+
+        var close = api.HandleRequest(CreateV2Request("window.close", $$"""{"id":"{{createdId}}","idFormat":"both"}"""));
+
+        close.Error.Should().BeNull();
+        closed.Should().BeTrue();
+        manager.Count.Should().Be(0);
+        using var closeResult = ParseResult(close);
+        closeResult.RootElement.GetProperty("closed").GetBoolean().Should().BeTrue();
+        closeResult.RootElement.GetProperty("window").GetProperty("id").GetString().Should().Be(createdId);
+    }
+
+    [Fact]
+    public void WindowFocus_ReturnsInvalidRefForNonWindowRef()
+    {
+        var manager = new ECode.Services.WindowManagerService<object>();
+        manager.RegisterWindow(new object(), "First");
+        var api = new ECode.Services.WindowApiService<object>(manager);
+
+        var response = api.HandleRequest(CreateV2Request("window.focus", """{"target":"workspace:1"}"""));
+
+        response.Error.Should().NotBeNull();
+        response.Error!.Code.Should().Be(V2ErrorCodes.InvalidRef);
+    }
+
+    private static V2Request CreateV2Request(string method, string? parameters = null)
+    {
+        return new V2Request
+        {
+            Id = JsonSerializer.SerializeToElement("test-request"),
+            Method = method,
+            Params = parameters == null
+                ? null
+                : JsonDocument.Parse(parameters).RootElement.Clone(),
+        };
+    }
+
+    private static JsonDocument ParseResult(V2Response response)
+    {
+        response.Result.Should().NotBeNull();
+        return JsonDocument.Parse(JsonSerializer.Serialize(response.Result));
+    }
+}
+
 public class BrowserScriptingServiceTests
 {
     [Fact]

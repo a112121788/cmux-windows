@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ECode.Core.Config;
 using ECode.Core.IPC;
+using ECode.Core.IPC.V2;
 using ECode.Core.Services;
 
 namespace ECode.Cli;
@@ -55,6 +56,7 @@ public static class Program
             return command switch
             {
                 "notify" => await HandleNotify(args[1..]),
+                "window" => await HandleWindow(args[1..]),
                 "workspace" => await HandleWorkspace(args[1..]),
                 "surface" => await HandleSurface(args[1..]),
                 "browser" => await HandleBrowser(args[1..]),
@@ -96,6 +98,33 @@ public static class Program
         var response = await NamedPipeClient.SendCommand("NOTIFY", cmdArgs);
         Console.WriteLine(response);
         return 0;
+    }
+
+    private static async Task<int> HandleWindow(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: ecode window <list|current|focus|create|close>");
+            return 1;
+        }
+
+        var subcommand = args[0].ToLowerInvariant();
+        var parsed = ParseArgs(args[1..]);
+        NormalizeWindowArgs(subcommand, parsed);
+
+        var method = subcommand switch
+        {
+            "list" or "ls" => "window.list",
+            "current" => "window.current",
+            "focus" => "window.focus",
+            "create" or "new" => "window.create",
+            "close" => "window.close",
+            _ => "",
+        };
+
+        return string.IsNullOrEmpty(method)
+            ? Error($"Unknown window command: {subcommand}")
+            : await SendV2AndPrint(method, parsed);
     }
 
     private static async Task<int> HandleWorkspace(string[] args)
@@ -238,6 +267,36 @@ public static class Program
         return 0;
     }
 
+    private static async Task<int> SendV2AndPrint(string method, Dictionary<string, string>? args = null)
+    {
+        var request = new V2Request
+        {
+            Id = JsonSerializer.SerializeToElement(Guid.NewGuid().ToString()),
+            Method = method,
+            Params = JsonSerializer.SerializeToElement(MergeGlobalArgs(args)),
+        };
+        var response = await NamedPipeClient.SendV2Request(request);
+
+        if (_globalOptions.Json)
+        {
+            Console.WriteLine(response);
+            return 0;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(response);
+            var pretty = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+            Console.WriteLine(pretty);
+        }
+        catch
+        {
+            Console.WriteLine(response);
+        }
+
+        return 0;
+    }
+
     private static Dictionary<string, string> MergeGlobalArgs(Dictionary<string, string>? args)
     {
         var merged = _globalOptions.ToPipeArgs();
@@ -325,6 +384,14 @@ public static class Program
         CopyAlias(args, "surface", "surfaceName");
     }
 
+    private static void NormalizeWindowArgs(string subcommand, Dictionary<string, string> args)
+    {
+        if (subcommand is "focus" or "close")
+            CopyAlias(args, "_arg0", "target");
+        else if (subcommand is "create" or "new")
+            CopyAlias(args, "_arg0", "title");
+    }
+
     private static void CopyAlias(Dictionary<string, string> args, string source, string target)
     {
         if (args.ContainsKey(target))
@@ -351,6 +418,13 @@ public static class Program
                 --title <text>      Notification title (default: "Terminal")
                 --body <text>       Notification body
                 --subtitle <text>   Notification subtitle
+
+              window                Manage app windows through ecode.v2
+                list                List all open windows
+                current             Show the current window
+                focus <ref|id>      Focus a window, e.g. window:1
+                create [title]      Create and show a new window
+                close <ref|id>      Close a window
 
               workspace             Manage projects
                 list                List all projects

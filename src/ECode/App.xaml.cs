@@ -18,6 +18,17 @@ public partial class App : Application
     public static CommandLogService CommandLogService { get; } = new();
     public static DaemonClient DaemonClient { get; } = new();
     public static WindowManagerService<MainWindow> WindowManager { get; } = new();
+    public static WindowApiService<MainWindow> WindowApi { get; } = new(
+        WindowManager,
+        title => string.IsNullOrWhiteSpace(title) ? new MainWindow() : new MainWindow { Title = title.Trim() },
+        window =>
+        {
+            if (!window.IsVisible)
+                window.Show();
+            window.Activate();
+        },
+        window => window.Activate(),
+        window => window.Close());
     public static Task<bool> DaemonConnectTask { get; private set; } = Task.FromResult(false);
 
     protected override void OnStartup(StartupEventArgs e)

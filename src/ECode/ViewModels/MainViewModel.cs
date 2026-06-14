@@ -521,6 +521,7 @@ public partial class MainViewModel : ObservableObject
             {
                 return request.Method switch
                 {
+                    var method when ECode.Services.WindowApiService<Window>.CanHandle(method) => App.WindowApi.HandleRequest(request),
                     "status" => V2Response.FromResult(request.Id, ParseJsonElement(HandleStatus())),
                     _ => V2Response.FromStableError(
                         request.Id,
