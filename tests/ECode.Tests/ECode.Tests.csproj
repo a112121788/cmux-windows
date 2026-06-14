@@ -21,6 +21,7 @@
     <Compile Include="..\..\src\ECode\Services\WindowApiService.cs" Link="Services\WindowApiService.cs" />
     <Compile Include="..\..\src\ECode\Services\WindowManagerService.cs" Link="Services\WindowManagerService.cs" />
     <Compile Include="..\..\src\ECode\Services\WorkspaceApiService.cs" Link="Services\WorkspaceApiService.cs" />
+    <Compile Include="..\..\src\ECode.Cli\Commands\Doctor.cs" Link="Commands\Doctor.cs" />
     <Compile Include="..\..\src\ECode.Cli\Commands\ProfileImport.cs" Link="Commands\ProfileImport.cs" />
     <Compile Include="..\..\src\ECode.Cli\Commands\ShellSetup.cs" Link="Commands\ShellSetup.cs" />
   </ItemGroup>

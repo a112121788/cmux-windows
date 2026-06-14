@@ -515,11 +515,85 @@ public class PowerShellCompletionScriptTests
         script.Should().Contain("'browser'");
         script.Should().Contain("'completion'");
         script.Should().Contain("'profile'");
+        script.Should().Contain("'doctor'");
         script.Should().Contain("'powershell'");
         script.Should().Contain("'window:'");
         script.Should().Contain("'workspace:'");
         script.Should().Contain("'surface:'");
         script.Should().Contain("'pane:'");
+    }
+}
+
+public class DoctorTests
+{
+    [Fact]
+    public void CreateReport_ReturnsExpectedChecksForHealthySnapshot()
+    {
+        var snapshot = new DoctorSnapshot(
+            IsWindows: true,
+            OsVersion: new Version(10, 0, 22631),
+            PathValue: @"C:\Windows;C:\Tools\ECode",
+            AppDirectory: @"C:\Tools\ECode",
+            AppDataDirectory: @"C:\Users\me\.ecode",
+            AppDataDirectoryExists: true,
+            WebView2Available: true,
+            WebView2Detail: "WebView2 Runtime found",
+            DaemonAvailable: true,
+            DaemonDetail: "Main app pipe responded");
+
+        var report = Doctor.CreateReport(snapshot);
+
+        report.Ok.Should().BeTrue();
+        report.Checks.Select(check => check.Name)
+            .Should().Equal("conpty", "webview2", "path", "daemon", "config");
+        report.Checks.Should().OnlyContain(check => check.Status == "ok");
+        Doctor.FormatHuman(report).Should().Contain("[ok] conpty:");
+    }
+
+    [Fact]
+    public void CreateReport_FailsConPtyOnOldWindowsButKeepsRecoverableWarningsNonFatal()
+    {
+        var snapshot = new DoctorSnapshot(
+            IsWindows: true,
+            OsVersion: new Version(10, 0, 17134),
+            PathValue: @"C:\Windows",
+            AppDirectory: @"C:\Tools\ECode",
+            AppDataDirectory: @"C:\Users\me\.ecode",
+            AppDataDirectoryExists: false,
+            WebView2Available: false,
+            WebView2Detail: "missing",
+            DaemonAvailable: false,
+            DaemonDetail: "not running");
+
+        var report = Doctor.CreateReport(snapshot);
+
+        report.Ok.Should().BeFalse();
+        report.Checks.Single(check => check.Name == "conpty").Status.Should().Be("fail");
+        report.Checks.Single(check => check.Name == "webview2").Status.Should().Be("warn");
+        report.Checks.Single(check => check.Name == "path").Status.Should().Be("warn");
+        report.Checks.Single(check => check.Name == "daemon").Status.Should().Be("warn");
+        report.Checks.Single(check => check.Name == "config").Status.Should().Be("warn");
+    }
+
+    [Fact]
+    public void FormatJson_IncludesOverallOkAndChecks()
+    {
+        var report = Doctor.CreateReport(new DoctorSnapshot(
+            IsWindows: true,
+            OsVersion: new Version(10, 0, 22631),
+            PathValue: @"C:\Tools\ECode",
+            AppDirectory: @"C:\Tools\ECode",
+            AppDataDirectory: @"C:\Users\me\.ecode",
+            AppDataDirectoryExists: true,
+            WebView2Available: true,
+            WebView2Detail: "found",
+            DaemonAvailable: true,
+            DaemonDetail: "running"));
+
+        using var doc = JsonDocument.Parse(Doctor.FormatJson(report));
+
+        doc.RootElement.GetProperty("Ok").GetBoolean().Should().BeTrue();
+        doc.RootElement.GetProperty("Checks")[0].GetProperty("Name").GetString().Should().Be("conpty");
     }
 }
 

@@ -19,6 +19,7 @@ $script:ECodeCommands = @(
     'restore-session',
     'status',
     'health',
+    'doctor',
     'completion',
     'help',
     'version'
@@ -44,7 +45,8 @@ $script:ECodeCommonOptions = @(
     '--name', '--title', '--body', '--lines', '--text', '--value',
     '--url', '--surfaceRef', '--direction', '--submit',
     '--settings', '--write', '--commandline', '--shell', '--font-face',
-    '--font-size', '--color-scheme', '--starting-directory', '--guid'
+    '--font-size', '--color-scheme', '--starting-directory', '--guid',
+    '--timeout-ms'
 )
 $script:ECodeRefPrefixes = @('window:', 'workspace:', 'surface:', 'pane:')
 

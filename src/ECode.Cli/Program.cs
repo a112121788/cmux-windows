@@ -72,6 +72,7 @@ public static class Program
                 "reload-config" => await HandleReloadConfig(),
                 "status" => await HandleStatus(),
                 "health" => await HandleHealth(),
+                "doctor" => await HandleDoctor(args[1..]),
                 "completion" => HandleCompletion(args[1..]),
                 "help" or "--help" or "-h" => PrintHelp(),
                 "version" or "--version" or "-v" => PrintVersion(),
@@ -320,6 +321,17 @@ public static class Program
     private static async Task<int> HandleHealth()
     {
         return await SendV2AndPrint("health");
+    }
+
+    private static async Task<int> HandleDoctor(string[] args)
+    {
+        var parsed = ParseArgs(args);
+        var timeout = int.TryParse(GetFirstOption(parsed, "timeout-ms"), out var parsedTimeout)
+            ? parsedTimeout
+            : 700;
+        var report = await Doctor.RunAsync(timeout);
+        Console.WriteLine(_globalOptions.Json ? Doctor.FormatJson(report) : Doctor.FormatHuman(report));
+        return report.Ok ? 0 : 1;
     }
 
     private static int HandleCompletion(string[] args)
@@ -821,6 +833,8 @@ public static class Program
 
               status                Show ecode status
               health                Show ecode.v2 health summary
+              doctor                Diagnose ConPTY, WebView2, PATH, daemon, and config state
+                --timeout-ms <n>    Daemon health timeout in milliseconds
               completion powershell Print PowerShell completion script
 
             Keyboard Shortcuts (in the app):

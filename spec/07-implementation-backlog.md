@@ -224,7 +224,7 @@
 | `M6-A-01` | `[x]` PATH / shell profile setup（PowerShell、cmd） | `ECode.Cli/Commands/ShellSetup.cs` | install / uninstall 可逆 |
 | `M6-A-02` | `[x]` PowerShell completion | `scripts/completions/ecode.ps1` | `ecode <Tab>` 可补全命令与 refs |
 | `M6-A-03` | `[x]` Windows Terminal profile 导入 | `ECode.Cli/Commands/ProfileImport.cs` | 可导入配色 / 字体 / shell profile |
-| `M6-A-04` | `ecode doctor` 环境诊断 | `ECode.Cli/Program.cs` | 输出 ConPTY / WebView2 / PATH / daemon 状态 |
+| `M6-A-04` | `[x]` `ecode doctor` 环境诊断 | `ECode.Cli/Program.cs` | 输出 ConPTY / WebView2 / PATH / daemon 状态 |
 | `M6-A-05` | `ecode setup status` / `ecode setup uninstall` | 同上 | diff 输出可读，卸载清理 PATH/profile 变更 |
 
 ### 包 B：安装与更新
