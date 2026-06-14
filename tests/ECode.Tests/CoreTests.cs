@@ -432,6 +432,69 @@ public class NamedPipeProtocolTests
     }
 }
 
+public class ShortRefTests
+{
+    [Theory]
+    [InlineData("window:1", ShortRefKind.Window, 1)]
+    [InlineData("workspace:2", ShortRefKind.Workspace, 2)]
+    [InlineData("surface:3", ShortRefKind.Surface, 3)]
+    [InlineData("pane:4", ShortRefKind.Pane, 4)]
+    [InlineData("WORKSPACE:5", ShortRefKind.Workspace, 5)]
+    public void Parse_AcceptsSupportedRefKinds(string value, ShortRefKind kind, int index)
+    {
+        var reference = ShortRef.Parse(value);
+
+        reference.Kind.Should().Be(kind);
+        reference.Index.Should().Be(index);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("workspace")]
+    [InlineData("workspace:0")]
+    [InlineData("workspace:-1")]
+    [InlineData("unknown:1")]
+    [InlineData("pane:not-number")]
+    public void TryParse_RejectsInvalidRefs(string value)
+    {
+        ShortRef.TryParse(value, out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(ShortRefKind.Window, "window:1")]
+    [InlineData(ShortRefKind.Workspace, "workspace:1")]
+    [InlineData(ShortRefKind.Surface, "surface:1")]
+    [InlineData(ShortRefKind.Pane, "pane:1")]
+    public void ToString_FormatsRefs(ShortRefKind kind, string expected)
+    {
+        new ShortRef(kind, 1).ToString().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(ShortRefKind.Window)]
+    [InlineData(ShortRefKind.Workspace)]
+    [InlineData(ShortRefKind.Surface)]
+    [InlineData(ShortRefKind.Pane)]
+    public void ShortRefIndex_ResolvesUuidAndRefBothWays(ShortRefKind kind)
+    {
+        var index = ShortRefIndex.FromIds(kind, ["id-a", "id-b"]);
+
+        index.TryResolve(new ShortRef(kind, 2), out var id).Should().BeTrue();
+        id.Should().Be("id-b");
+        index.TryGetRef("id-a", out var reference).Should().BeTrue();
+        reference.Should().Be(new ShortRef(kind, 1));
+    }
+
+    [Fact]
+    public void ShortRefIndex_IgnoresDuplicateIdsWhenAssigningRefs()
+    {
+        var index = ShortRefIndex.FromIds(ShortRefKind.Workspace, ["workspace-a", "workspace-a", "workspace-b"]);
+
+        index.GetRef("workspace-a").Should().Be(new ShortRef(ShortRefKind.Workspace, 1));
+        index.GetRef("workspace-b").Should().Be(new ShortRef(ShortRefKind.Workspace, 2));
+    }
+}
+
 public class BrowserScriptingServiceTests
 {
     [Fact]
