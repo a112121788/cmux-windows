@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _uiRefreshTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
     private readonly DispatcherTimer _terminalFocusTimer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private ICollectionView? _workspaceView;
+    private string? _windowManagerId;
 
     public MainWindow()
     {
@@ -73,6 +74,19 @@ public partial class MainWindow : Window
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         ViewModel.WorkspaceOrderChanged += PersistCurrentSession;
         ViewModel.ConfigReloadRequested += ReloadEcodeJsonConfigForIpc;
+
+        var windowInfo = App.WindowManager.RegisterWindow(this, Title);
+        _windowManagerId = windowInfo.Id;
+        Activated += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_windowManagerId))
+                App.WindowManager.FocusWindow(_windowManagerId);
+        };
+        Closed += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_windowManagerId))
+                App.WindowManager.UnregisterWindow(_windowManagerId);
+        };
     }
 
     private void OnSettingsChanged()

@@ -199,7 +199,7 @@
 
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
-| `M5-B-01` | `WindowManagerService` | `ECode/Services/WindowManagerService.cs` | 多窗口独立生命周期 |
+| `M5-B-01` | `[x]` `WindowManagerService` | `ECode/Services/WindowManagerService.cs` | 多窗口独立生命周期 |
 | `M5-B-02` | `window.list/current/focus/create/close` v2 API | `MainViewModel`、v2 协议层 | contract 测试 |
 | `M5-B-03` | `surface.{move,reorder}` | 同上 | contract 测试 |
 

@@ -2,6 +2,8 @@
 using System.Windows;
 using ECode.Core.IPC;
 using ECode.Core.Services;
+using ECode.Services;
+using ECode.Views;
 
 namespace ECode;
 
@@ -15,6 +17,7 @@ public partial class App : Application
     public static SnippetService SnippetService { get; } = new();
     public static CommandLogService CommandLogService { get; } = new();
     public static DaemonClient DaemonClient { get; } = new();
+    public static WindowManagerService<MainWindow> WindowManager { get; } = new();
     public static Task<bool> DaemonConnectTask { get; private set; } = Task.FromResult(false);
 
     protected override void OnStartup(StartupEventArgs e)

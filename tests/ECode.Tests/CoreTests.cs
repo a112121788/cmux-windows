@@ -582,6 +582,89 @@ public class CliGlobalOptionsTests
     }
 }
 
+public class WindowManagerServiceTests
+{
+    [Fact]
+    public void RegisterWindow_AssignsStableWindowRefsAndCurrentWindow()
+    {
+        var service = new ECode.Services.WindowManagerService<object>();
+        var first = new object();
+        var second = new object();
+
+        var firstInfo = service.RegisterWindow(first, "First");
+        var secondInfo = service.RegisterWindow(second, "Second");
+        var windows = service.ListWindows();
+
+        firstInfo.Ref.Should().Be(new ShortRef(ShortRefKind.Window, 1));
+        secondInfo.Ref.Should().Be(new ShortRef(ShortRefKind.Window, 2));
+        windows.Should().HaveCount(2);
+        windows[0].IsCurrent.Should().BeFalse();
+        windows[1].IsCurrent.Should().BeTrue();
+        service.CurrentWindowId.Should().Be(secondInfo.Id);
+    }
+
+    [Fact]
+    public void FocusWindow_UpdatesCurrentWithoutChangingWindowOrder()
+    {
+        var service = new ECode.Services.WindowManagerService<object>();
+        var first = service.RegisterWindow(new object(), "First");
+        var second = service.RegisterWindow(new object(), "Second");
+        var focused = false;
+
+        service.FocusWindow(first.Id, _ => focused = true).Should().BeTrue();
+        var windows = service.ListWindows();
+
+        focused.Should().BeTrue();
+        service.CurrentWindowId.Should().Be(first.Id);
+        windows.Select(w => w.Id).Should().Equal(first.Id, second.Id);
+        windows[0].IsCurrent.Should().BeTrue();
+        windows[1].IsCurrent.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UnregisterCurrentWindow_PromotesLastRemainingWindow()
+    {
+        var service = new ECode.Services.WindowManagerService<object>();
+        var first = service.RegisterWindow(new object(), "First");
+        var second = service.RegisterWindow(new object(), "Second");
+
+        service.UnregisterWindow(second.Id).Should().BeTrue();
+
+        service.CurrentWindowId.Should().Be(first.Id);
+        service.ListWindows().Should().ContainSingle()
+            .Which.IsCurrent.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateAndCloseWindow_KeepIndependentLifecycle()
+    {
+        var service = new ECode.Services.WindowManagerService<object>();
+        var closed = false;
+
+        var info = service.CreateWindow(() => new object(), show: _ => { }, title: "Created");
+        var closedResult = service.CloseWindow(info.Id, _ => closed = true);
+
+        closedResult.Should().BeTrue();
+        closed.Should().BeTrue();
+        service.Count.Should().Be(0);
+        service.CurrentWindowId.Should().BeNull();
+    }
+
+    [Fact]
+    public void RegisterWindow_DoesNotDuplicateSameWindowInstance()
+    {
+        var service = new ECode.Services.WindowManagerService<object>();
+        var window = new object();
+
+        var first = service.RegisterWindow(window, "First");
+        var second = service.RegisterWindow(window, "Renamed");
+
+        first.Id.Should().Be(second.Id);
+        service.ListWindows().Should().ContainSingle()
+            .Which.Title.Should().Be("Renamed");
+    }
+}
+
 public class BrowserScriptingServiceTests
 {
     [Fact]
