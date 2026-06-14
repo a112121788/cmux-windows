@@ -211,7 +211,7 @@
 | `M5-C-02` | `[x]` `pane.list/focus/write/read/split/close/resize/swap/zoom` | 同上 | contract 测试 |
 | `M5-C-03` | `[x]` `notification.list/read/unread/jump-latest/clear` | 同上 | contract 测试 |
 | `M5-C-04` | `[x]` `config.reload` / `config.diagnostics` | 同上 | contract 测试 |
-| `M5-C-05` | `status` / `health` | 同上 | contract 测试 |
+| `M5-C-05` | `[x]` `status` / `health` | 同上 | contract 测试 |
 
 ---
 

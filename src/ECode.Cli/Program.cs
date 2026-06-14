@@ -67,6 +67,7 @@ public static class Program
                 "config" => await HandleConfig(args[1..]),
                 "reload-config" => await HandleReloadConfig(),
                 "status" => await HandleStatus(),
+                "health" => await HandleHealth(),
                 "help" or "--help" or "-h" => PrintHelp(),
                 "version" or "--version" or "-v" => PrintVersion(),
                 _ => Error($"Unknown command: {command}"),
@@ -309,6 +310,11 @@ public static class Program
     private static async Task<int> HandleStatus()
     {
         return await SendAndPrint("STATUS");
+    }
+
+    private static async Task<int> HandleHealth()
+    {
+        return await SendV2AndPrint("health");
     }
 
     private static async Task<int> HandleRestoreSession(string[] args)
@@ -694,6 +700,7 @@ public static class Program
                 --surface <name>    Select surface by name
 
               status                Show ecode status
+              health                Show ecode.v2 health summary
 
             Keyboard Shortcuts (in the app):
               Ctrl+N                New project

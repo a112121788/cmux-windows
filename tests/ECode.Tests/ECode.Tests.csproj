@@ -16,6 +16,7 @@
     <Compile Include="..\..\src\ECode\Services\ConfigApiService.cs" Link="Services\ConfigApiService.cs" />
     <Compile Include="..\..\src\ECode\Services\PaneApiService.cs" Link="Services\PaneApiService.cs" />
     <Compile Include="..\..\src\ECode\Services\NotificationApiService.cs" Link="Services\NotificationApiService.cs" />
+    <Compile Include="..\..\src\ECode\Services\StatusApiService.cs" Link="Services\StatusApiService.cs" />
     <Compile Include="..\..\src\ECode\Services\SurfaceApiService.cs" Link="Services\SurfaceApiService.cs" />
     <Compile Include="..\..\src\ECode\Services\WindowApiService.cs" Link="Services\WindowApiService.cs" />
     <Compile Include="..\..\src\ECode\Services\WindowManagerService.cs" Link="Services\WindowManagerService.cs" />

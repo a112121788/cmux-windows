@@ -377,6 +377,70 @@ public class ConfigApiServiceTests
     }
 }
 
+public class StatusApiServiceTests
+{
+    [Fact]
+    public void Status_ReturnsStatusPayload()
+    {
+        var api = new ECode.Services.StatusApiService(() => """
+            {
+              "version": "0.2.0",
+              "workspaces": 2,
+              "selectedWorkspace": "workspace-a",
+              "unreadNotifications": 3
+            }
+            """);
+
+        var response = api.HandleRequest(CreateV2Request("status", "{}"));
+
+        response.Error.Should().BeNull();
+        using var result = ParseResult(response);
+        result.RootElement.GetProperty("version").GetString().Should().Be("0.2.0");
+        result.RootElement.GetProperty("workspaces").GetInt32().Should().Be(2);
+        result.RootElement.GetProperty("selectedWorkspace").GetString().Should().Be("workspace-a");
+        result.RootElement.GetProperty("unreadNotifications").GetInt32().Should().Be(3);
+    }
+
+    [Fact]
+    public void Health_ReturnsOkChecksAndEmbeddedStatus()
+    {
+        var api = new ECode.Services.StatusApiService(() => """
+            {
+              "version": "0.2.0",
+              "workspaces": 1,
+              "selectedWorkspace": null,
+              "unreadNotifications": 0
+            }
+            """);
+
+        var response = api.HandleRequest(CreateV2Request("health", "{}"));
+
+        response.Error.Should().BeNull();
+        using var result = ParseResult(response);
+        result.RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
+        result.RootElement.GetProperty("status").GetProperty("version").GetString().Should().Be("0.2.0");
+        result.RootElement.GetProperty("status").GetProperty("workspaces").GetInt32().Should().Be(1);
+        result.RootElement.GetProperty("checks")[0].GetProperty("name").GetString().Should().Be("status");
+        result.RootElement.GetProperty("checks")[0].GetProperty("ok").GetBoolean().Should().BeTrue();
+    }
+
+    private static V2Request CreateV2Request(string method, string parameters)
+    {
+        return new V2Request
+        {
+            Id = JsonSerializer.SerializeToElement("test-request"),
+            Method = method,
+            Params = JsonDocument.Parse(parameters).RootElement.Clone(),
+        };
+    }
+
+    private static JsonDocument ParseResult(V2Response response)
+    {
+        response.Result.Should().NotBeNull();
+        return JsonDocument.Parse(JsonSerializer.Serialize(response.Result));
+    }
+}
+
 /// <summary>
 /// Daemon 消息序列化测试 - 验证 IPC 消息（请求/响应/事件）的 JSON 序列化和反序列化
 /// </summary>
