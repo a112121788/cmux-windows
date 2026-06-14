@@ -33,6 +33,7 @@ ECode 的用户可读变更记录。维护规则参见 `spec/06-roadmap.md` §3.
 - `ResumeBindingService` 保存 `resume.json` 前会剔除 TOKEN、PASSWORD、SECRET、API_KEY 等敏感环境变量。
 - 新增 `ecode surface resume set/show/clear`，可通过 CLI 保存、查看与清理当前 pane 的恢复绑定。
 - 未信任 resume binding 会在对应 pane 显示红色恢复提示条与“可恢复”按钮，用户确认后才会执行恢复命令。
+- 新增自动恢复可信 resume binding 的全局开关，以及“信任并恢复”按钮；关闭时不会自动执行任何 resume binding。
 - 启动 shell 时注入 `ECODE_WORKSPACE_ID`，本地 ConPTY 与 daemon 托管会话均可读取当前 workspace id。
 - 新增 Browser surface 基础数据模型，`session.json` 可保存 `kind/browserUrl/browserTitle/browserHistory`，旧会话默认按 Terminal 恢复。
 - 新增 `BrowserPaneViewModel`，为 Browser pane 暴露 URL、标题、加载中、前进/后退能力与历史状态。

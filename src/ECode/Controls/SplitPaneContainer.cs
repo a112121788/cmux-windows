@@ -446,6 +446,7 @@ public class SplitPaneContainer : ContentControl
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var text = new TextBlock
         {
@@ -484,8 +485,36 @@ public class SplitPaneContainer : ContentControl
         };
         Grid.SetColumn(button, 1);
 
+        var trustButton = new Button
+        {
+            Content = "信任并恢复",
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            FontSize = 11,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            Background = GetThemeBrush("SurfaceHighBrush"),
+            Foreground = GetThemeBrush("ForegroundBrush"),
+            BorderBrush = GetThemeBrush("ErrorBrush"),
+            BorderThickness = new Thickness(1),
+            ToolTip = "将此 binding 标记为可信并执行；启用自动恢复后可自动执行可信 binding",
+        };
+        trustButton.Click += (_, e) =>
+        {
+            e.Handled = true;
+            var result = MessageBox.Show(
+                $"将信任并执行此恢复命令：\n\n{binding.Shell}",
+                "信任恢复命令",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+                _surface?.RunPendingResumeBinding(paneId, trustForFuture: true);
+        };
+        Grid.SetColumn(trustButton, 2);
+
         grid.Children.Add(text);
         grid.Children.Add(button);
+        grid.Children.Add(trustButton);
         banner.Child = grid;
         return banner;
     }

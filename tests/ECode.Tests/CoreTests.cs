@@ -571,6 +571,24 @@ public class ResumeBindingServiceTests
     }
 
     [Fact]
+    public void TrustBinding_TrustsSingleBindingById()
+    {
+        using var temp = TempDirectory.Create();
+        var service = new ResumeBindingService(Path.Combine(temp.Path, "resume.json"));
+        service.Add(CreateResumeBinding("target", "workspace-1", "surface-1", "pane-1", @"C:\repo", "tmux attach -t work"));
+        service.Add(CreateResumeBinding("other", "workspace-1", "surface-1", "pane-2", @"C:\repo", "npm test"));
+
+        var trusted = service.TrustBinding("target");
+
+        trusted.Should().BeTrue();
+        var bindings = service.Load().Bindings.ToDictionary(b => b.Id);
+        bindings["target"].Trusted.Should().BeTrue();
+        bindings["target"].TrustReason.Should().Be("user-approved-binding");
+        bindings["target"].ApprovedPrefix.Should().Be("tmux attach -t work");
+        bindings["other"].Trusted.Should().BeFalse();
+    }
+
+    [Fact]
     public void Save_DropsSensitiveEnv()
     {
         using var temp = TempDirectory.Create();

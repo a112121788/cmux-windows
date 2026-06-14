@@ -36,6 +36,7 @@ public class ECodeSettings
     // ── 行为 ────────────────────────────────────────────────
 
     public bool RestoreSessionOnStartup { get; set; } = true;
+    public bool AutoResumeTrustedBindings { get; set; } = false;
     public bool ConfirmOnClose { get; set; } = true;
     public bool AutoCopyOnSelect { get; set; } = false;
     public bool CtrlClickOpensUrls { get; set; } = true;
@@ -94,4 +95,3 @@ public class ShellProfile
     public string? ThemeOverride { get; set; }
     public bool IsDefault { get; set; }
 }
-

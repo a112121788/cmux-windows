@@ -195,6 +195,26 @@ public sealed class ResumeBindingService
         return trustedCount;
     }
 
+    public bool TrustBinding(string bindingId, string trustReason = "user-approved-binding")
+    {
+        if (string.IsNullOrWhiteSpace(bindingId))
+            return false;
+
+        var file = Load();
+        var binding = file.Bindings.FirstOrDefault(b => string.Equals(b.Id, bindingId, StringComparison.Ordinal));
+        if (binding == null)
+            return false;
+
+        binding.Trusted = true;
+        binding.TrustReason = string.IsNullOrWhiteSpace(trustReason) ? "user-approved-binding" : trustReason;
+        binding.ApprovedPrefix = string.IsNullOrWhiteSpace(binding.ApprovedPrefix)
+            ? binding.Shell
+            : binding.ApprovedPrefix;
+        binding.UpdatedAtUtc = DateTime.UtcNow;
+        Save(file);
+        return true;
+    }
+
     public static Dictionary<string, string> DropSensitiveEnvironment(IReadOnlyDictionary<string, string>? environment)
     {
         if (environment == null || environment.Count == 0)

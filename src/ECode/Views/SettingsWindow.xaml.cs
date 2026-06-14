@@ -83,6 +83,7 @@ public partial class SettingsWindow : Window
         BracketedPasteCheck.IsChecked = s.BracketedPaste;
 
         RestoreSessionCheck.IsChecked = s.RestoreSessionOnStartup;
+        AutoResumeTrustedBindingsCheck.IsChecked = s.AutoResumeTrustedBindings;
         ConfirmCloseCheck.IsChecked = s.ConfirmOnClose;
         AutoCopyCheck.IsChecked = s.AutoCopyOnSelect;
         CtrlClickUrlCheck.IsChecked = s.CtrlClickOpensUrls;
@@ -130,6 +131,7 @@ public partial class SettingsWindow : Window
         s.BracketedPaste = BracketedPasteCheck.IsChecked == true;
 
         s.RestoreSessionOnStartup = RestoreSessionCheck.IsChecked == true;
+        s.AutoResumeTrustedBindings = AutoResumeTrustedBindingsCheck.IsChecked == true;
         s.ConfirmOnClose = ConfirmCloseCheck.IsChecked == true;
         s.AutoCopyOnSelect = AutoCopyCheck.IsChecked == true;
         s.CtrlClickOpensUrls = CtrlClickUrlCheck.IsChecked == true;

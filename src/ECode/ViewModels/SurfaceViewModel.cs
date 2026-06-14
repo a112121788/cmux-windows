@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ECode.Core.Config;
@@ -22,6 +23,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
     private readonly Dictionary<string, int> _paneUnreadCounts = [];
     private readonly Dictionary<string, ResumeBinding> _pendingResumeBindings = [];
     private readonly ResumeBindingService _resumeBindingService = new();
+    private readonly HashSet<string> _autoResumedBindingIds = [];
     private readonly HashSet<string> _daemonPanes = [];
     private readonly HashSet<string> _daemonOutputLogged = [];
     private static readonly object _daemonWaitLock = new();
@@ -151,6 +153,7 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
 
         RefreshNotificationState();
         RefreshResumeBindings();
+        QueueTrustedResumeBindingsIfAllowed();
     }
 
     partial void OnUnreadNotificationCountChanged(int value)
@@ -215,24 +218,75 @@ public partial class SurfaceViewModel : ObservableObject, IDisposable
         return _pendingResumeBindings.TryGetValue(paneId, out var binding) ? binding : null;
     }
 
-    public bool RunPendingResumeBinding(string paneId)
+    public bool RunPendingResumeBinding(string paneId, bool trustForFuture = false)
     {
         if (!_pendingResumeBindings.TryGetValue(paneId, out var binding))
             return false;
 
+        return RunResumeBinding(binding, trustForFuture);
+    }
+
+    private void QueueTrustedResumeBindingsIfAllowed()
+    {
+        if (IsBrowser || !SettingsService.Current.AutoResumeTrustedBindings)
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(600);
+            await Application.Current.Dispatcher.InvokeAsync(RunTrustedResumeBindings);
+        });
+    }
+
+    private void RunTrustedResumeBindings()
+    {
+        if (!SettingsService.Current.AutoResumeTrustedBindings)
+            return;
+
+        var activePaneIds = RootNode.GetLeaves()
+            .Select(leaf => leaf.PaneId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+
+        var trustedBindings = _resumeBindingService.FindForSurface(_workspaceId, Surface.Id)
+            .Where(binding =>
+                binding.Trusted &&
+                !string.IsNullOrWhiteSpace(binding.Id) &&
+                !_autoResumedBindingIds.Contains(binding.Id) &&
+                !string.IsNullOrWhiteSpace(binding.Shell) &&
+                !string.IsNullOrWhiteSpace(binding.PaneId) &&
+                activePaneIds.Contains(binding.PaneId))
+            .GroupBy(binding => binding.PaneId, StringComparer.Ordinal)
+            .Select(group => group.OrderByDescending(binding => binding.UpdatedAtUtc).First())
+            .ToList();
+
+        foreach (var binding in trustedBindings)
+            RunResumeBinding(binding, trustForFuture: false);
+    }
+
+    private bool RunResumeBinding(ResumeBinding binding, bool trustForFuture)
+    {
         if (string.IsNullOrWhiteSpace(binding.Shell) ||
-            !_sessions.TryGetValue(paneId, out var session))
+            string.IsNullOrWhiteSpace(binding.PaneId) ||
+            !_sessions.TryGetValue(binding.PaneId, out var session))
         {
             return false;
         }
 
-        FocusPane(paneId);
+        if (trustForFuture && !string.IsNullOrWhiteSpace(binding.Id))
+            _resumeBindingService.TrustBinding(binding.Id);
+
+        FocusPane(binding.PaneId);
 
         var command = binding.Shell.Trim();
         session.Write(command + "\r");
-        RegisterCommandSubmission(paneId, command);
+        RegisterCommandSubmission(binding.PaneId, command);
 
-        _pendingResumeBindings.Remove(paneId);
+        if (!string.IsNullOrWhiteSpace(binding.Id))
+            _autoResumedBindingIds.Add(binding.Id);
+
+        _pendingResumeBindings.Remove(binding.PaneId);
         ResumeBindingVersion++;
         return true;
     }

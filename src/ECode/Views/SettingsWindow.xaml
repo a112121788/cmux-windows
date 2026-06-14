@@ -611,6 +611,18 @@
                                       Content="启动时恢复上一次的会话" />
                         </Grid>
 
+                        <!-- 自动恢复可信绑定 -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="自动恢复可信绑定" Style="{StaticResource SectionLabel}" />
+                            <CheckBox x:Name="AutoResumeTrustedBindingsCheck" Grid.Column="1"
+                                      Style="{StaticResource SettingsCheck}"
+                                      Content="启动后自动执行已显式信任的 resume binding" />
+                        </Grid>
+
                         <!-- 关闭前确认 -->
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>

@@ -112,7 +112,7 @@
 | ID | 标题 | 关联文件 | 验收 |
 |---|---|---|---|
 | `M2-B-01` | `[x]` 恢复确认 UI（未信任 binding 提示条） | `Controls/SplitPaneContainer.cs` 或 `TerminalControl.cs` | 红框 + “可恢复” 按钮 |
-| `M2-B-02` | 自动恢复设置项（全局开关 + 每条 binding 显式信任） | `ECodeSettings.cs`、`SettingsWindow.xaml` | 关闭后所有 resume binding 均不自动执行 |
+| `M2-B-02` | `[x]` 自动恢复设置项（全局开关 + 每条 binding 显式信任） | `ECodeSettings.cs`、`SettingsWindow.xaml` | 关闭后所有 resume binding 均不自动执行 |
 | `M2-B-03` | 进程检测（tasklist 解析 tmux / shell 子进程） | `ECode.Core/Services/ResumeProcessDetector.cs` | 单元测试：含/不含 tmux 与 shell 路径 |
 
 ### 包 C：CLI
